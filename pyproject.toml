@@ -1,0 +1,30 @@
+[project]
+name = "halstela"
+version = "0.1.0"
+description = "Tesla Fleet API 個人利用ツール"
+requires-python = ">=3.10"
+dependencies = [
+    "authlib>=1.3.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
