@@ -27,7 +27,7 @@ class TeslaConfig(BaseSettings):
     auth_url: str = "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/authorize"
     token_url: str = "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
     api_base_url: str = "https://fleet-api.prd.na.vn.cloud.tesla.com"
-    oauth_scopes: str = "openid offline_access vehicle_device_data"
+    oauth_scopes: str = "openid offline_access vehicle_device_data vehicle_location"
     partner_scope: str = "openid offline_access"
     token_file: Optional[str] = None
 
