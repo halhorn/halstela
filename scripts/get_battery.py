@@ -45,38 +45,17 @@ def _select_vehicle(vehicles: list[dict]) -> dict:
     return vehicles[0]
 
 
-def _vehicle_identifier(vehicle: dict) -> str:
-    """車両識別子を取得"""
-    if vehicle.get("id_s"):
-        return str(vehicle["id_s"])
-    if vehicle.get("id"):
-        return str(vehicle["id"])
-    raise RuntimeError(f"車両識別子が見つかりません: {json.dumps(vehicle, ensure_ascii=False)}")
-
-
-def _get_charge_state(http_client: TeslaHTTPClient, token: str, vehicle_id: str) -> dict:
+def _get_charge_state(http_client: TeslaHTTPClient, token: str, vin: str) -> dict:
     """充電状態を取得"""
-    # Fleet API 形式
-    paths = [
-        f"/api/1/vehicles/{urllib.parse.quote(vehicle_id)}/vehicle_data?endpoints=charge_state",
-        # 互換用途 (環境差異対策)
-        f"/api/1/vehicles/{urllib.parse.quote(vehicle_id)}/data_request/charge_state",
-    ]
-
-    last_error: Exception | None = None
-    for path in paths:
-        try:
-            payload = http_client.get_json(path, token)
-            response = payload.get("response", {})
-            charge_state = response.get("charge_state", response)
-            if isinstance(charge_state, dict) and charge_state.get("battery_level") is not None:
-                return charge_state
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-
-    if last_error:
-        raise RuntimeError(f"charge_state の取得に失敗しました: {last_error}") from last_error
-    raise RuntimeError("charge_state の取得に失敗しました。")
+    # Fleet API: /api/1/vehicles/{vin}/vehicle_data を使用
+    # data_request/charge_state は非推奨で404になるため使用しない
+    path = f"/api/1/vehicles/{urllib.parse.quote(vin)}/vehicle_data"
+    payload = http_client.get_json(path, token)
+    response = payload.get("response", {})
+    charge_state = response.get("charge_state", response)
+    if isinstance(charge_state, dict) and charge_state.get("battery_level") is not None:
+        return charge_state
+    raise RuntimeError(f"charge_state の取得に失敗しました: response={json.dumps(response, ensure_ascii=False)[:500]}")
 
 
 def main() -> int:
@@ -111,8 +90,7 @@ def main() -> int:
         with TeslaHTTPClient(config.api_base_url) as http_client:
             vehicles = _list_vehicles(http_client, token)
             vehicle = _select_vehicle(vehicles)
-            vehicle_id = _vehicle_identifier(vehicle)
-            charge_state = _get_charge_state(http_client, token, vehicle_id)
+            charge_state = _get_charge_state(http_client, token, vehicle["vin"])
 
             result = {
                 "vehicle_display_name": vehicle.get("display_name"),

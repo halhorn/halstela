@@ -66,6 +66,8 @@ class TeslaOAuth2:
             "client_secret": self.config.client_secret,
             "code": code,
             "redirect_uri": redirect_uri,
+            "audience": self.config.api_base_url,
+            "scope": self.config.oauth_scopes,
         }
         if code_verifier:
             body["code_verifier"] = code_verifier
