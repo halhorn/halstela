@@ -6,7 +6,6 @@ OAuth2 認可コード受け取り用のローカルコールバックサーバ�
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Event, Thread
@@ -117,9 +116,7 @@ class OAuthCallbackServer:
                 )
                 done.set()
 
-            def _send_html(
-                inner_self, status: int, title: str, body: str
-            ) -> None:
+            def _send_html(inner_self, status: int, title: str, body: str) -> None:
                 inner_self.send_response(status)
                 inner_self.send_header("Content-type", "text/html; charset=utf-8")
                 inner_self.end_headers()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 class TokenManager:
@@ -32,7 +32,7 @@ class TokenManager:
         """トークンを読み込み"""
         if not self.token_file.exists():
             raise FileNotFoundError(f"トークンファイルが見つかりません: {self.token_file}")
-        return json.loads(self.token_file.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(self.token_file.read_text(encoding="utf-8")))
 
     def get_access_token(self) -> str:
         """access_tokenを取得"""
@@ -40,7 +40,7 @@ class TokenManager:
         token = data.get("access_token")
         if not token:
             raise ValueError(f"{self.token_file} に access_token がありません。")
-        return token
+        return cast(str, token)
 
     def get_refresh_token(self) -> str:
         """refresh_tokenを取得"""
@@ -48,4 +48,4 @@ class TokenManager:
         token = data.get("refresh_token")
         if not token:
             raise ValueError(f"{self.token_file} に refresh_token がありません。")
-        return token
+        return cast(str, token)

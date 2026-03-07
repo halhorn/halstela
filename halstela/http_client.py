@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -35,7 +34,7 @@ class TeslaHTTPClient:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
         except httpx.HTTPStatusError as exc:
             body_text = exc.response.text
             raise RuntimeError(f"HTTP {exc.response.status_code} {url}\n{body_text}") from exc
@@ -52,7 +51,7 @@ class TeslaHTTPClient:
                 },
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
         except httpx.HTTPStatusError as exc:
             body_text = exc.response.text
             raise RuntimeError(f"HTTP {exc.response.status_code} {url}\n{body_text}") from exc
@@ -70,7 +69,7 @@ class TeslaHTTPClient:
                 },
             )
             response.raise_for_status()
-            return response.json()
+            return cast(dict[str, Any], response.json())
         except httpx.HTTPStatusError as exc:
             body_text = exc.response.text
             raise RuntimeError(f"HTTP {exc.response.status_code} {url}\n{body_text}") from exc

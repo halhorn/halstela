@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any
+from typing import Any, cast
 
-from authlib.integrations.httpx_client import AsyncOAuth2Client, OAuth2Client
+from authlib.integrations.httpx_client import OAuth2Client
 
 from halstela.config import TeslaConfig
 from halstela.http_client import TeslaHTTPClient
@@ -73,7 +73,7 @@ class TeslaOAuth2:
             body["code_verifier"] = code_verifier
 
         with TeslaHTTPClient(self.config.token_url) as http_client:
-            return http_client.post_form(self.config.token_url, body)
+            return cast(dict[str, Any], http_client.post_form(self.config.token_url, body))
 
     def refresh_token(self, refresh_token: str | None = None) -> dict[str, Any]:
         """refresh tokenでトークンを更新"""
@@ -91,7 +91,7 @@ class TeslaOAuth2:
         if "refresh_token" not in result:
             result["refresh_token"] = refresh_token
 
-        return result
+        return cast(dict[str, Any], result)
 
     def get_partner_token(self) -> str:
         """client_credentialsでpartner tokenを取得"""

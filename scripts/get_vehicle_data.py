@@ -31,7 +31,9 @@ def _list_vehicles(http_client: TeslaHTTPClient, token: str) -> list[dict]:
     payload = http_client.get_json("/api/1/vehicles", token)
     vehicles = payload.get("response")
     if not isinstance(vehicles, list) or not vehicles:
-        raise RuntimeError(f"車両一覧が取得できませんでした: {json.dumps(payload, ensure_ascii=False)}")
+        raise RuntimeError(
+            f"車両一覧が取得できませんでした: {json.dumps(payload, ensure_ascii=False)}"
+        )
     return vehicles
 
 
@@ -73,7 +75,9 @@ def _get_vehicle_data(http_client: TeslaHTTPClient, token: str, vin: str) -> dic
     payload = http_client.get_json(path, token)
     response = payload.get("response", {})
     if not isinstance(response, dict):
-        raise RuntimeError(f"vehicle_data の取得に失敗しました: response={json.dumps(response, ensure_ascii=False)[:500]}")
+        raise RuntimeError(
+            f"vehicle_data の取得に失敗しました: response={json.dumps(response, ensure_ascii=False)[:500]}"
+        )
     return response
 
 

@@ -42,7 +42,7 @@ def _run_refresh(oauth: TeslaOAuth2, config: TeslaConfig) -> int:
     payload = oauth.refresh_token()
     token_manager = TokenManager(config.get_token_file_path())
     path = token_manager.save(payload)
-    _print_token_result(path, payload, message="token を更新しました")
+    _print_token_result(str(path), payload, message="token を更新しました")
     return 0
 
 
@@ -73,13 +73,11 @@ def _run_authorization_flow(
         print("[ERROR] code が取得できませんでした。", file=sys.stderr)
         return 1
 
-    payload = oauth.fetch_token(
-        code=result.code, redirect_uri=callback_server.redirect_uri
-    )
+    payload = oauth.fetch_token(code=result.code, redirect_uri=callback_server.redirect_uri)
     token_manager = TokenManager(config.get_token_file_path())
     path = token_manager.save(payload)
     print()
-    _print_token_result(path, payload)
+    _print_token_result(str(path), payload)
     return 0
 
 
