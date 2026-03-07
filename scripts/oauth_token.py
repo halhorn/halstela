@@ -2,8 +2,7 @@
 """
 Tesla OAuth2 トークン取得用の最小スクリプト（authlib使用版）。
 
-実行すると認可URLを表示し、codeの入力を待ちます。
-codeを入力すると、tokenに交換して保存します。
+実行すると認可URLを表示し、ローカルサーバーでリダイレクトを受け取り認証を完了します。
 """
 
 from __future__ import annotations
@@ -14,26 +13,15 @@ import sys
 
 from halstela.config import TeslaConfig
 from halstela.oauth import TeslaOAuth2
+from halstela.oauth_callback_server import OAuthCallbackServer
 from halstela.token import TokenManager
 
-# 定数
-REDIRECT_URI = "http://localhost:3000/callback"
+CALLBACK_TIMEOUT = 300.0
 
 
 def main() -> int:
-    """メイン関数"""
-    parser = argparse.ArgumentParser(
-        description="Tesla OAuth2 token utility\n\n実行すると認可URLを表示し、codeの入力を待ちます。",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--refresh",
-        action="store_true",
-        help="refresh tokenで更新（code入力は不要）",
-    )
-    args = parser.parse_args()
+    args = _parse_args()
 
-    # 設定読み込み
     try:
         config = TeslaConfig()
     except Exception as exc:
@@ -42,56 +30,101 @@ def main() -> int:
 
     try:
         oauth = TeslaOAuth2(config)
-
         if args.refresh:
-            # refresh tokenで更新
-            payload = oauth.refresh_token()
-            token_manager = TokenManager(config.get_token_file_path())
-            path = token_manager.save(payload)
-            print(f"token を更新しました: {path}")
-            print(
-                json.dumps(
-                    {k: payload.get(k) for k in ("token_type", "expires_in", "scope")},
-                    ensure_ascii=False,
-                )
-            )
-            return 0
-
-        # 認可URLを生成して表示
-        url, _ = oauth.create_authorization_url(
-            redirect_uri=REDIRECT_URI,
-            scopes=config.oauth_scopes,
-        )
-        print("以下のURLをブラウザで開いて認証してください:")
-        print(url)
-        print("\n認証後、localhostにリダイレクトされたURLからcodeパラメータを取り出してください。")
-        print("\ncodeを入力してください: ", end="", flush=True)
-
-        # code入力を待つ
-        code = input().strip()
-        if not code:
-            print("[ERROR] codeが入力されませんでした。", file=sys.stderr)
-            return 1
-
-        # codeをtokenに交換
-        payload = oauth.fetch_token(
-            code=code,
-            redirect_uri=REDIRECT_URI,
-        )
-
-        token_manager = TokenManager(config.get_token_file_path())
-        path = token_manager.save(payload)
-        print(f"\ntoken を保存しました: {path}")
-        print(
-            json.dumps(
-                {k: payload.get(k) for k in ("token_type", "expires_in", "scope")},
-                ensure_ascii=False,
-            )
-        )
-        return 0
+            return _run_refresh(oauth, config)
+        return _run_authorization_flow(oauth, config, open_browser=not args.no_open_browser)
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 1
+
+
+def _run_refresh(oauth: TeslaOAuth2, config: TeslaConfig) -> int:
+    payload = oauth.refresh_token()
+    token_manager = TokenManager(config.get_token_file_path())
+    path = token_manager.save(payload)
+    _print_token_result(path, payload, message="token を更新しました")
+    return 0
+
+
+def _run_authorization_flow(
+    oauth: TeslaOAuth2,
+    config: TeslaConfig,
+    open_browser: bool,
+) -> int:
+    callback_server = OAuthCallbackServer()
+    url, _ = oauth.create_authorization_url(
+        redirect_uri=callback_server.redirect_uri,
+        scopes=config.oauth_scopes,
+    )
+    _open_auth_url(url, open_browser)
+
+    print("\nローカルサーバーでコールバックを待機しています...")
+    result = callback_server.wait_for_code(timeout=CALLBACK_TIMEOUT)
+
+    if result.error:
+        msg = (
+            "タイムアウトまたは code が取得できませんでした。"
+            if result.error == "timeout"
+            else result.error
+        )
+        print(f"[ERROR] {msg}", file=sys.stderr)
+        return 1
+    if not result.code:
+        print("[ERROR] code が取得できませんでした。", file=sys.stderr)
+        return 1
+
+    payload = oauth.fetch_token(
+        code=result.code, redirect_uri=callback_server.redirect_uri
+    )
+    token_manager = TokenManager(config.get_token_file_path())
+    path = token_manager.save(payload)
+    print()
+    _print_token_result(path, payload)
+    return 0
+
+
+def _open_auth_url(url: str, open_browser: bool) -> None:
+    print("以下のURLをブラウザで開いて認証してください:")
+    print(url)
+    if open_browser:
+        try:
+            import webbrowser
+
+            webbrowser.open(url)
+            print("ブラウザを開きました。認証後、このウィンドウに戻ってください。")
+        except Exception:  # noqa: BLE001
+            print("ブラウザの起動に失敗しました。上記URLを手動で開いてください。")
+    else:
+        print("認証後、リダイレクト先で code が自動で取得されます。")
+
+
+def _print_token_result(path: str, payload: dict, message: str = "token を保存しました") -> None:
+    print(f"{message}: {path}")
+    print(
+        json.dumps(
+            {k: payload.get(k) for k in ("token_type", "expires_in", "scope")},
+            ensure_ascii=False,
+        )
+    )
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Tesla OAuth2 token utility\n\n"
+        "実行すると認可URLを表示し、ブラウザで認証後にローカルサーバーで code を受け取ってトークンを保存します。",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="refresh tokenで更新（code入力は不要）",
+    )
+    parser.add_argument(
+        "--no-open-browser",
+        action="store_true",
+        help="ブラウザを自動で開かない（URLのみ表示）",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
