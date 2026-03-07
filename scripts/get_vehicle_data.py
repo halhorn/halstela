@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run python
 """
-Tesla Fleet API からバッテリー残量を取得する最小スクリプト（httpx使用版）。
+Tesla Fleet API から vehicle_data を取得し、すべての結果を見やすく出力する。
 """
 
 from __future__ import annotations
@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import urllib.parse
 
 from halstela.config import TeslaConfig
@@ -45,22 +46,40 @@ def _select_vehicle(vehicles: list[dict]) -> dict:
     return vehicles[0]
 
 
-def _get_charge_state(http_client: TeslaHTTPClient, token: str, vin: str) -> dict:
-    """充電状態を取得"""
-    # Fleet API: /api/1/vehicles/{vin}/vehicle_data を使用
-    # data_request/charge_state は非推奨で404になるため使用しない
+def _wake_up(http_client: TeslaHTTPClient, token: str, vin: str) -> None:
+    """車両をスリープから起こす"""
+    path = f"/api/1/vehicles/{urllib.parse.quote(vin)}/wake_up"
+    http_client.post_json(path, token, {})
+
+
+def _wait_until_online(
+    http_client: TeslaHTTPClient, token: str, vin: str, timeout: float = 60.0
+) -> None:
+    """車両がオンラインになるまで待つ"""
+    path = f"/api/1/vehicles/{urllib.parse.quote(vin)}"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        payload = http_client.get_json(path, token)
+        state = payload.get("response", {}).get("state")
+        if state == "online":
+            return
+        time.sleep(3)
+    raise RuntimeError(f"車両がオンラインになりませんでした（{timeout}秒以内）")
+
+
+def _get_vehicle_data(http_client: TeslaHTTPClient, token: str, vin: str) -> dict:
+    """vehicle_data を取得"""
     path = f"/api/1/vehicles/{urllib.parse.quote(vin)}/vehicle_data"
     payload = http_client.get_json(path, token)
     response = payload.get("response", {})
-    charge_state = response.get("charge_state", response)
-    if isinstance(charge_state, dict) and charge_state.get("battery_level") is not None:
-        return charge_state
-    raise RuntimeError(f"charge_state の取得に失敗しました: response={json.dumps(response, ensure_ascii=False)[:500]}")
+    if not isinstance(response, dict):
+        raise RuntimeError(f"vehicle_data の取得に失敗しました: response={json.dumps(response, ensure_ascii=False)[:500]}")
+    return response
 
 
 def main() -> int:
     """メイン関数"""
-    description = """Tesla Fleet API からバッテリー残量を取得
+    description = """Tesla Fleet API から vehicle_data を取得
 
 使用方法:
   %(prog)s
@@ -87,18 +106,26 @@ def main() -> int:
     try:
         token = _get_access_token(config)
 
-        with TeslaHTTPClient(config.api_base_url) as http_client:
+        with TeslaHTTPClient(config.api_base_url, timeout=30.0) as http_client:
             vehicles = _list_vehicles(http_client, token)
             vehicle = _select_vehicle(vehicles)
-            charge_state = _get_charge_state(http_client, token, vehicle["vin"])
+            vin = vehicle["vin"]
+            try:
+                vehicle_data = _get_vehicle_data(http_client, token, vin)
+            except RuntimeError as exc:
+                if "408" not in str(exc):
+                    raise
+                print("車両がスリープ中のため、起こしてから再試行します...", file=sys.stderr)
+                _wake_up(http_client, token, vin)
+                _wait_until_online(http_client, token, vin)
+                vehicle_data = _get_vehicle_data(http_client, token, vin)
 
             result = {
-                "vehicle_display_name": vehicle.get("display_name"),
-                "vin": vehicle.get("vin"),
-                "battery_level": charge_state.get("battery_level"),
-                "usable_battery_level": charge_state.get("usable_battery_level"),
-                "charging_state": charge_state.get("charging_state"),
-                "timestamp": charge_state.get("timestamp"),
+                "vehicle": {
+                    "display_name": vehicle.get("display_name"),
+                    "vin": vehicle.get("vin"),
+                },
+                "vehicle_data": vehicle_data,
             }
             print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
