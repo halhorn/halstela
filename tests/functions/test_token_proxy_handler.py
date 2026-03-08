@@ -1,7 +1,5 @@
 """functions/token_proxy/handler.py のテスト"""
 
-from __future__ import annotations
-
 import base64
 import json
 from unittest.mock import MagicMock, patch

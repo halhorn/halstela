@@ -1,7 +1,5 @@
 """設定管理モジュール"""
 
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +19,7 @@ class TeslaConfig:
     token_file: str | None = None
 
     @classmethod
-    def from_env(cls) -> TeslaConfig:
+    def from_env(cls) -> "TeslaConfig":
         """環境変数から設定を読み込む。.env ファイルがあれば先に読み込む。"""
         load_dotenv()
         client_id = os.environ.get("TESLA_CLIENT_ID")

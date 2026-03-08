@@ -1,7 +1,5 @@
 """Tesla Fleet API クライアント（Client 層）"""
 
-from __future__ import annotations
-
 from typing import Any, cast
 
 import httpx
@@ -39,7 +37,7 @@ class TeslaFleetClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> TeslaFleetClient:
+    def __enter__(self) -> "TeslaFleetClient":
         return self
 
     def __exit__(self, *args: object) -> None:

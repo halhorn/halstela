@@ -1,7 +1,5 @@
 """車両データクラス"""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 

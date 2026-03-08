@@ -1,8 +1,6 @@
 #!/usr/bin/env -S uv run python
 """Tesla OAuth2 トークン取得/更新スクリプト。"""
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys

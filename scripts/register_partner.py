@@ -1,8 +1,6 @@
 #!/usr/bin/env -S uv run python
 """Tesla Fleet API の partner account 登録を行うスクリプト。"""
 
-from __future__ import annotations
-
 import json
 import sys
 
