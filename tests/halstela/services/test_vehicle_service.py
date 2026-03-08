@@ -74,9 +74,7 @@ class TestGetVehicleData:
 
         vehicle_service.get_vehicle_data("VIN1", endpoints=["climate_state"])
 
-        mock_client.get_vehicle_data.assert_called_once_with(
-            "VIN1", endpoints=["climate_state"]
-        )
+        mock_client.get_vehicle_data.assert_called_once_with("VIN1", endpoints=["climate_state"])
 
 
 class TestGetClimateState:
