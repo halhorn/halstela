@@ -6,13 +6,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-_ssm_cache: dict[str, str] = {}
+_ssm_cache: dict[str, dict[str, str]] = {}
 
 
 def _read_ssm(prefix: str) -> dict[str, str]:
     """SSM Parameter Store からプレフィックス配下のパラメータを一括取得（結果はキャッシュ）。"""
     if prefix in _ssm_cache:
-        return _ssm_cache
+        return _ssm_cache[prefix]
 
     import boto3
 
@@ -21,7 +21,7 @@ def _read_ssm(prefix: str) -> dict[str, str]:
     resp = ssm.get_parameters(Names=names, WithDecryption=True)
 
     result = {p["Name"].rsplit("/", 1)[-1]: p["Value"] for p in resp["Parameters"]}
-    _ssm_cache[prefix] = result  # type: ignore[assignment]
+    _ssm_cache[prefix] = result
     return result
 
 
