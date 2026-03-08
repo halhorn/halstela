@@ -38,6 +38,10 @@ htmlcov/
 !.env.example
 secret/
 
+# AWS SAM
+.aws-sam/
+samconfig.toml
+
 # ドキュメント
 mdc/
 

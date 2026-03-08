@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Tesla x Alexa Smart Home Skill
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    MemorySize: 256
+    Architectures:
+      - arm64
+
+Parameters:
+  TeslaFleetApiBaseUrl:
+    Type: String
+    Default: "https://fleet-api.prd.na.vn.cloud.tesla.com"
+  TeslaClientId:
+    Type: String
+    NoEcho: true
+  TeslaClientSecret:
+    Type: String
+    NoEcho: true
+
+Resources:
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: halstela-shared
+      Description: halstela shared package + dependencies
+      ContentUri: layers/shared/
+      CompatibleRuntimes:
+        - python3.12
+      CompatibleArchitectures:
+        - arm64
+    Metadata:
+      BuildMethod: makefile
+
+  SkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: halstela-skill
+      CodeUri: functions/skill/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          TESLA_CLIENT_ID: !Ref TeslaClientId
+          TESLA_CLIENT_SECRET: !Ref TeslaClientSecret
+          TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
+
+  TokenProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: halstela-token-proxy
+      CodeUri: functions/token_proxy/
+      Handler: handler.lambda_handler
+      Layers:
+        - !Ref SharedLayer
+      FunctionUrlConfig:
+        AuthType: NONE
+      Environment:
+        Variables:
+          TESLA_TOKEN_URL: "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+          TESLA_AUDIENCE: !Ref TeslaFleetApiBaseUrl
+
+Outputs:
+  TokenProxyUrl:
+    Description: Token Proxy URL (Alexa Account Linking の Access Token URI に設定)
+    Value: !GetAtt TokenProxyFunctionUrl.FunctionUrl
+
+  SkillFunctionArn:
+    Description: Skill Lambda ARN (Alexa Skill の Endpoint に設定)
+    Value: !GetAtt SkillFunction.Arn

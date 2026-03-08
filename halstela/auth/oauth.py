@@ -1,21 +1,21 @@
-"""OAuth2管理モジュール（authlib使用）"""
+"""OAuth2 管理モジュール（authlib 使用）"""
 
 from __future__ import annotations
 
 import secrets
 from typing import Any, cast
 
+import httpx
 from authlib.integrations.httpx_client import OAuth2Client
 
+from halstela.auth.token import TokenManager
 from halstela.config import TeslaConfig
-from halstela.http_client import TeslaHTTPClient
-from halstela.token import TokenManager
 
 
 class TeslaOAuth2:
-    """Tesla OAuth2クライアント"""
+    """Tesla OAuth2 クライアント（CLI スクリプト用）"""
 
-    def __init__(self, config: TeslaConfig):
+    def __init__(self, config: TeslaConfig) -> None:
         self.config = config
         self.client = OAuth2Client(
             client_id=config.client_id,
@@ -31,7 +31,7 @@ class TeslaOAuth2:
         code_challenge: str | None = None,
         code_challenge_method: str = "S256",
     ) -> tuple[str, str]:
-        """認可URLを生成"""
+        """認可 URL を生成"""
         if state is None:
             state = secrets.token_urlsafe(24)
 
@@ -57,26 +57,30 @@ class TeslaOAuth2:
         redirect_uri: str,
         code_verifier: str | None = None,
     ) -> dict[str, Any]:
-        """authorization codeをトークンに交換"""
-        # authlibのfetch_tokenがclient_idを正しく送信しない場合があるため、
-        # 直接HTTPリクエストを送信する
-        body = {
+        """authorization code をトークンに交換"""
+        body: dict[str, str] = {
             "grant_type": "authorization_code",
             "client_id": self.config.client_id,
             "client_secret": self.config.client_secret,
             "code": code,
             "redirect_uri": redirect_uri,
-            "audience": self.config.api_base_url,
+            "audience": self.config.fleet_api_base_url,
             "scope": self.config.oauth_scopes,
         }
         if code_verifier:
             body["code_verifier"] = code_verifier
 
-        with TeslaHTTPClient(self.config.token_url) as http_client:
-            return cast(dict[str, Any], http_client.post_form(self.config.token_url, body))
+        with httpx.Client(timeout=20.0) as http:
+            response = http.post(
+                self.config.token_url,
+                data=body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+            return cast(dict[str, Any], response.json())
 
     def refresh_token(self, refresh_token: str | None = None) -> dict[str, Any]:
-        """refresh tokenでトークンを更新"""
+        """refresh token でトークンを更新"""
         if refresh_token is None:
             token_manager = TokenManager(self.config.get_token_file_path())
             refresh_token = token_manager.get_refresh_token()
@@ -87,25 +91,28 @@ class TeslaOAuth2:
         )
         result = dict(token)
 
-        # refresh tokenが省略される実装向けに現行値を保持
         if "refresh_token" not in result:
             result["refresh_token"] = refresh_token
 
         return cast(dict[str, Any], result)
 
     def get_partner_token(self) -> str:
-        """client_credentialsでpartner tokenを取得"""
-        with TeslaHTTPClient(self.config.token_url) as http_client:
-            payload = http_client.post_form(
+        """client_credentials で partner token を取得"""
+        with httpx.Client(timeout=20.0) as http:
+            response = http.post(
                 self.config.token_url,
-                {
+                data={
                     "grant_type": "client_credentials",
                     "client_id": self.config.client_id,
                     "client_secret": self.config.client_secret,
                     "scope": self.config.partner_scope,
                 },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            token = payload.get("access_token")
-            if not token:
-                raise RuntimeError(f"partner token 取得に失敗しました: {payload}")
-            return str(token)
+            response.raise_for_status()
+            payload = response.json()
+
+        token = payload.get("access_token")
+        if not token:
+            raise RuntimeError(f"partner token 取得に失敗しました: {payload}")
+        return str(token)
