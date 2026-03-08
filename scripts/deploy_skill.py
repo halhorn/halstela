@@ -96,11 +96,21 @@ def main() -> None:
         tmppath = f.name
 
     try:
-        run([
-            "ask", "smapi", "update-skill-manifest",
-            "-s", skill_id, "-g", "development", "-p", profile,
-            "--manifest", f"file:{tmppath}",
-        ])
+        run(
+            [
+                "ask",
+                "smapi",
+                "update-skill-manifest",
+                "-s",
+                skill_id,
+                "-g",
+                "development",
+                "-p",
+                profile,
+                "--manifest",
+                f"file:{tmppath}",
+            ]
+        )
     finally:
         os.unlink(tmppath)
 
@@ -109,7 +119,12 @@ def main() -> None:
     for _ in range(12):
         time.sleep(5)
         out = run(["ask", "smapi", "get-skill-status", "-s", skill_id, "-p", profile])
-        status = json.loads(out).get("manifest", {}).get("lastUpdateRequest", {}).get("status", "UNKNOWN")
+        status = (
+            json.loads(out)
+            .get("manifest", {})
+            .get("lastUpdateRequest", {})
+            .get("status", "UNKNOWN")
+        )
         print(f"  Build status: {status}")
 
         if status == "SUCCEEDED":

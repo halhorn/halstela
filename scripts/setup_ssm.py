@@ -12,7 +12,11 @@ import sys
 
 PARAMS: list[dict[str, str]] = [
     {"name": "/halstela/tesla-client-id", "type": "SecureString", "dummy": "CHANGE_ME_client_id"},
-    {"name": "/halstela/tesla-client-secret", "type": "SecureString", "dummy": "CHANGE_ME_client_secret"},
+    {
+        "name": "/halstela/tesla-client-secret",
+        "type": "SecureString",
+        "dummy": "CHANGE_ME_client_secret",
+    },
     {"name": "/halstela/alexa-skill-id", "type": "String", "dummy": "amzn1.ask.skill.CHANGE_ME"},
 ]
 
@@ -38,12 +42,19 @@ def main() -> None:
     for param in PARAMS:
         result = subprocess.run(
             [
-                "aws", "ssm", "put-parameter",
-                "--name", param["name"],
-                "--type", param["type"],
-                "--value", param["dummy"],
-                "--region", REGION,
-                "--profile", profile,
+                "aws",
+                "ssm",
+                "put-parameter",
+                "--name",
+                param["name"],
+                "--type",
+                param["type"],
+                "--value",
+                param["dummy"],
+                "--region",
+                REGION,
+                "--profile",
+                profile,
             ],
             capture_output=True,
             text=True,
@@ -60,7 +71,7 @@ def main() -> None:
 
     print()
     print("Done. Update values with:")
-    print(f"  aws ssm put-parameter --name /halstela/tesla-client-id \\")
+    print("  aws ssm put-parameter --name /halstela/tesla-client-id \\")
     print("    --type SecureString --value 'REAL_VALUE' --overwrite \\")
     print(f"    --region {REGION} --profile {profile}")
 
