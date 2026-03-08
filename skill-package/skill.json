@@ -1,0 +1,51 @@
+{
+  "manifest": {
+    "manifestVersion": "1.0",
+    "publishingInformation": {
+      "locales": {
+        "ja-JP": {
+          "name": "テスラ",
+          "summary": "テスラ車両の温度確認やエアコン操作を Alexa から行います。",
+          "description": "テスラと連携し、車内・外気温の確認やエアコンのリモート操作を音声で行えます。",
+          "examplePhrases": [
+            "アレクサ、テスラの温度は？",
+            "アレクサ、テスラのエアコンをつけて"
+          ],
+          "keywords": ["テスラ", "スマートホーム", "車", "エアコン", "温度"]
+        }
+      },
+      "distributionCountries": ["JP"],
+      "isAvailableWorldwide": false,
+      "testingInstructions": "Account Linking で Tesla アカウントを連携後、「テスラの温度は？」「テスラのエアコンをつけて」で動作確認。",
+      "category": "SMART_HOME"
+    },
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": true,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false,
+      "locales": {
+        "ja-JP": {
+          "privacyPolicyUrl": "",
+          "termsOfUseUrl": ""
+        }
+      }
+    },
+    "apis": {
+      "smartHome": {
+        "endpoint": {
+          "uri": "REPLACE_WITH_LAMBDA_ARN"
+        },
+        "protocolVersion": "3",
+        "regions": {
+          "FE": {
+            "endpoint": {
+              "uri": "REPLACE_WITH_LAMBDA_ARN"
+            }
+          }
+        }
+      }
+    }
+  }
+}

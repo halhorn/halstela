@@ -16,7 +16,7 @@
 - **Token Proxy Lambda**: フレームワーク不要（標準ライブラリ + httpx）
 - **ライブラリ**: httpx, authlib
 - **パッケージ管理**: uv（`pyproject.toml` + `uv.lock`）
-- **IaC**: AWS SAM（`template.yaml`）
+- **IaC**: AWS 側は SAM（`template.yaml`）。Alexa スキル定義は skill-package を ASK SMAPI（`scripts/deploy_skill.py`）で反映する。秘密情報（Tesla Client ID/Secret、Alexa Skill ID）は AWS SSM Parameter Store で管理し、Lambda は SSM から取得する。
 - **トークン管理**: Alexa Account Linking が担う。Lambda はリクエストごとに Alexa から渡される access_token を使用
 - **車両 sleep 対応**: `wake_up` → ポーリングが必要（既存 `get_vehicle_data.py` の知見を流用）
 - **既存コードの方針**: 既存実装にはとらわれず再設計する。ビジネスロジックはモデル層（共通モジュール）に集約し、Lambda ハンドラーと CLI スクリプトはモデル層を呼び出す薄いラッパーとする
@@ -56,7 +56,7 @@ SAM の `BuildMethod: python-uv` は Lambda Function 向けの機能で、Lambda
   3. **Client 層**: Tesla Fleet API との HTTP 通信
 - **理由**: ヘキサゴナルは AWS 公式推奨だが、本プロジェクトの規模（外部依存は Tesla API のみ、DB なし、2 Lambda）では過剰
 - **コード共有**: Lambda Layer で共通モジュール（Service 層 + Client 層）をパッケージし、両 Lambda から参照。将来の拡張性を考慮し Layer 方式を採用
-- **Layer ビルド**: `BuildMethod: makefile`。Makefile 内で `pip install ../../ -t ...` を実行し、`pyproject.toml` の依存定義を参照（ライブラリの二重管理を防ぐ）
+- **Layer ビルド**: `BuildMethod: makefile`。Makefile 内で `uv pip install . -t ...` を実行し、ルートの `pyproject.toml` を参照（Python 3.12 統一のため uv を使用）
 - Smart Home ディレクティブのディスパッチは Handler 層の中で行う（Service 層には影響しない）
 
 #### 受け入れ条件
@@ -71,6 +71,17 @@ SAM の `BuildMethod: python-uv` は Lambda Function 向けの機能で、Lambda
 ### Smart Home Skill ディレクティブ定義
 
 Smart Home Skill として、Skill Lambda が処理するディレクティブ。テスラを1つの「エンドポイント（デバイス）」として Alexa に登録し、複数のインターフェースを持たせる。
+
+- **スキル定義の管理**: マニフェストは skill-package に置き、**ASK SMAPI**（`ask smapi update-skill-manifest`）で Alexa に反映する。Smart Home では `ask deploy` はエンドポイント検証で失敗するため、`scripts/deploy_skill.py` から SMAPI を呼ぶ（詳細は下記「ASK CLI の構成・運用」）。
+
+#### ASK CLI の構成・運用
+
+- **skill-package**: Smart Home スキルのマニフェスト（`skill.json`）のみ。`manifest.apis.smartHome.endpoint.uri` および `regions.FE.endpoint.uri` に Lambda ARN を指定する（デプロイ時に `REPLACE_WITH_LAMBDA_ARN` を置換）。Smart Home ではインタラクションモデルは不要なため `interactionModels` は持たない。
+- **ask-resources.json**: ASK CLI 用の設定。スキル ID とデプロイ対象プロファイル（halhorn-dev / halhorn-prd）を指定。DEV/PRD は AWS アカウントが別のため、各アカウントの SSM に同じパス（`/halstela/*`）でパラメータを置く。
+- **デプロイ**: `./scripts/deploy` が SAM デプロイ後に `./scripts/deploy_skill.py` を実行し、SMAPI でマニフェストを更新する。Lambda ARN は `.env` の `HALSTELA_DEV_LAMBDA_ARN` / `HALSTELA_PRD_LAMBDA_ARN` を参照（`./scripts/deploy` 経由の場合は deploy_skill.py が .env を読む）。
+- **認証**: ASK CLI は Amazon Developer アカウント（LWA）で認証。`ask configure` でプロファイルを紐づける。
+- **Account Linking**: 認可 URL・Token Proxy URL・Client ID 等は Alexa Developer Console で設定。必要に応じて SMAPI をスクリプトから呼ぶ。
+- **ツール**: ASK CLI は Node.js 製。`npm install -g ask-cli` で利用する。
 
 #### デバイスディスカバリ
 
@@ -120,7 +131,11 @@ Lambda Function URL で公開する HTTPS エンドポイント。Alexa Account 
 halstela/                          # Repository root
 ├── pyproject.toml                 # ルート: halstela パッケージ定義 + dev deps
 ├── template.yaml                  # SAM テンプレート
-├── samconfig.toml                 # SAM デプロイ設定
+├── samconfig.toml                 # SAM デプロイ設定（gitignore）
+├── ask-resources.json             # ASK CLI 用。スキル ID・プロファイル指定
+├── skill-package/                 # Alexa スキル定義（SMAPI で反映）
+│   └── skill.json                 # Smart Home マニフェスト（エンドポイント ARN はデプロイ時置換）
+├── .ask/                          # ASK CLI 状態（ask-states 等）。gitignore 推奨
 │
 ├── halstela/                      # 共通パッケージ（→ Lambda Layer）
 │   ├── __init__.py
@@ -144,7 +159,10 @@ halstela/                          # Repository root
 │   └── token_proxy/
 │       └── handler.py             # トークン交換プロキシ
 │
-├── scripts/                       # CLI スクリプト（Handler 層）
+├── scripts/                       # CLI スクリプト・デプロイ（Handler 層）
+│   ├── deploy                    # Lambda + スキル統合デプロイ（dev / prd）
+│   ├── deploy_skill.py            # スキル定義を SMAPI で反映
+│   ├── setup_ssm.py               # SSM パラメータ初期作成（ダミー値・上書きなし）
 │   ├── get_vehicle_data.py
 │   ├── oauth_token.py
 │   └── register_partner.py
@@ -181,7 +199,7 @@ halstela/                          # Repository root
 | **Model** | `halstela/models/vehicle.py` | 車両データクラス |
 | **Model** | `halstela/models/climate_state.py` | 気候状態データクラス |
 | **Model** | `halstela/models/command_result.py` | コマンド実行結果データクラス |
-| **Config** | `halstela/config.py` | 環境変数からの設定読み込み |
+| **Config** | `halstela/config.py` | 環境変数または SSM Parameter Store（Lambda では SSM_PREFIX 設定時）からの設定読み込み |
 | **Auth** | `halstela/auth/oauth.py` | OAuth2 クライアント（CLI 用） |
 | **Auth** | `halstela/auth/oauth_callback_server.py` | ローカルコールバックサーバー |
 | **Auth** | `halstela/auth/token.py` | トークン保存・読み込み |

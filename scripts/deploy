@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Lambda + Alexa スキルの統合デプロイ。
+# 用法: ./scripts/deploy dev | prd
+set -euo pipefail
+
+ENV_NAME="${1:-}"
+if [[ "$ENV_NAME" != "dev" && "$ENV_NAME" != "prd" ]]; then
+  echo "Usage: $0 dev | prd"
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ "$ENV_NAME" == "dev" ]]; then
+  export AWS_PROFILE="halhorn-dev"
+else
+  export AWS_PROFILE="halhorn-prd"
+fi
+
+cd "$REPO_ROOT"
+
+echo "=== Phase 1: Lambda deploy (SAM) ==="
+uv run sam build
+uv run sam deploy \
+  --stack-name halstela \
+  --region us-west-2 \
+  --capabilities CAPABILITY_IAM \
+  --no-confirm-changeset \
+  --no-fail-on-empty-changeset \
+  --resolve-s3 \
+  --parameter-overrides \
+    "AlexaSkillId=/halstela/alexa-skill-id"
+
+echo ""
+echo "=== Phase 2: Skill deploy (Alexa) ==="
+"$SCRIPT_DIR/deploy_skill.py" "$ENV_NAME"
+
+echo ""
+echo "=== Deploy complete! ==="
