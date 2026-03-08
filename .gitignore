@@ -42,6 +42,9 @@ secret/
 .aws-sam/
 samconfig.toml
 
+# ASK CLI
+.ask/
+
 # ドキュメント
 mdc/
 

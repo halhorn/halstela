@@ -1,0 +1,20 @@
+{
+  "askcliResourcesVersion": "2020-03-31",
+  "profiles": {
+    "default": {
+      "skillMetadata": {
+        "src": "./skill-package"
+      }
+    },
+    "halhorn-dev": {
+      "skillMetadata": {
+        "src": "./skill-package"
+      }
+    },
+    "halhorn-prd": {
+      "skillMetadata": {
+        "src": "./skill-package"
+      }
+    }
+  }
+}
