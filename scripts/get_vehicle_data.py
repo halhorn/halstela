@@ -1,8 +1,6 @@
 #!/usr/bin/env -S uv run python
 """Tesla Fleet API から vehicle_data を取得して JSON 出力する。"""
 
-from __future__ import annotations
-
 import json
 import os
 import sys

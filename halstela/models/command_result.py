@@ -1,7 +1,5 @@
 """コマンド実行結果データクラス"""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 

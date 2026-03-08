@@ -1,7 +1,5 @@
 """halstela.clients.tesla_fleet_client のテスト"""
 
-from __future__ import annotations
-
 from unittest.mock import MagicMock, patch
 
 import httpx
