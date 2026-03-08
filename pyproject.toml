@@ -11,6 +11,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "aws-sam-cli>=1.100.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "pytest>=8.0.0",

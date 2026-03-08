@@ -20,6 +20,9 @@ Parameters:
   TeslaClientSecret:
     Type: String
     NoEcho: true
+  AlexaSkillId:
+    Type: String
+    Description: Alexa Smart Home Skill ID (amzn1.ask.skill.xxx)
 
 Resources:
   SharedLayer:
@@ -48,6 +51,11 @@ Resources:
           TESLA_CLIENT_ID: !Ref TeslaClientId
           TESLA_CLIENT_SECRET: !Ref TeslaClientSecret
           TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
+    Events:
+      AlexaSmartHome:
+        Type: AlexaSkillEvent
+        Properties:
+          SkillId: !Ref AlexaSkillId
 
   TokenProxyFunction:
     Type: AWS::Serverless::Function
