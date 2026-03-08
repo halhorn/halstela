@@ -71,11 +71,11 @@ Token Proxy の実装：
 - **デプロイ方式**: AWS SAM（`sam deploy` でデプロイ、Lambda に特化したシンプルなテンプレート）
 - **Alexa スキル定義**: ASK CLI で IaC 管理（後述）
 
-### Alexa スキル定義の IaC（ASK CLI）
+### Alexa スキル定義の IaC（ASK CLI / SMAPI）
 
-スキルのマニフェスト・インタラクションモデルは **ASK CLI**（[Alexa Skills Kit CLI](https://developer.amazon.com/en-US/docs/alexa/smapi/ask-cli-intro.html)）でコード管理し、`ask deploy` で Alexa 側に反映する。
+スキルのマニフェストは **skill-package/** でコード管理し、**ASK CLI の SMAPI**（`ask smapi update-skill-manifest`）で Alexa 側に反映する。Smart Home スキルでは `ask deploy`（パッケージインポート）はエンドポイント検証で失敗するため、SMAPI を直接利用する。
 
-- **役割分担**: AWS 側（Lambda・Token Proxy）は SAM でデプロイ。Alexa 側（スキル定義）は ASK CLI でリポジトリ管理し `ask deploy` で更新。Lambda は SAM（Python）のまま、スキル定義だけ ASK CLI で扱うハイブリッド構成。
+- **役割分担**: AWS 側（Lambda・Token Proxy）は SAM でデプロイ。Alexa 側（スキル定義）はリポジトリの skill-package を `scripts/deploy_skill.py` 経由で SMAPI により更新。
 - 設定ファイル・ディレクトリ構成・認証・Account Linking の扱いなど**具体的な構成は [data-class-design](./data-class-design.md) に記載する**。
 
 ### コスト概算
@@ -117,7 +117,7 @@ Token Proxy の実装：
 - **Linter**: ruff（既存に則る）
 - **静的型検査**: mypy（既存に則る）
 - **ユニットテスト**: pytest
-- **IaC / デプロイ**: AWS 側は AWS SAM（`template.yaml`）。Alexa スキル定義は ASK CLI で管理し `ask deploy` でデプロイ（詳細は data-class-design 参照）。
+- **IaC / デプロイ**: AWS 側は AWS SAM（`template.yaml`）。Alexa スキル定義は skill-package を SMAPI で反映（詳細は data-class-design 参照）。
 
 ### クライアント
 
