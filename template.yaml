@@ -14,15 +14,9 @@ Parameters:
   TeslaFleetApiBaseUrl:
     Type: String
     Default: "https://fleet-api.prd.na.vn.cloud.tesla.com"
-  TeslaClientId:
-    Type: String
-    NoEcho: true
-  TeslaClientSecret:
-    Type: String
-    NoEcho: true
   AlexaSkillId:
-    Type: String
-    Description: Alexa Smart Home Skill ID (amzn1.ask.skill.xxx)
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /halstela/alexa-skill-id
 
 Resources:
   SharedLayer:
@@ -46,16 +40,25 @@ Resources:
       Handler: handler.lambda_handler
       Layers:
         - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/halstela/*
       Environment:
         Variables:
-          TESLA_CLIENT_ID: !Ref TeslaClientId
-          TESLA_CLIENT_SECRET: !Ref TeslaClientSecret
+          SSM_PREFIX: /halstela
           TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
-    Events:
-      AlexaSmartHome:
-        Type: AlexaSkillEvent
-        Properties:
-          SkillId: !Ref AlexaSkillId
+
+  SkillFunctionAlexaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SkillFunction
+      Action: lambda:InvokeFunction
+      Principal: alexa-connectedhome.amazon.com
+      EventSourceToken: !Ref AlexaSkillId
 
   TokenProxyFunction:
     Type: AWS::Serverless::Function
