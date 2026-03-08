@@ -69,6 +69,14 @@ Token Proxy の実装：
 
 - **Lambda 構成**: 2 Lambda に分離（Skill Lambda / Token Proxy Lambda）。関心の分離を優先。
 - **デプロイ方式**: AWS SAM（`sam deploy` でデプロイ、Lambda に特化したシンプルなテンプレート）
+- **Alexa スキル定義**: ASK CLI で IaC 管理（後述）
+
+### Alexa スキル定義の IaC（ASK CLI）
+
+スキルのマニフェスト・インタラクションモデルは **ASK CLI**（[Alexa Skills Kit CLI](https://developer.amazon.com/en-US/docs/alexa/smapi/ask-cli-intro.html)）でコード管理し、`ask deploy` で Alexa 側に反映する。
+
+- **役割分担**: AWS 側（Lambda・Token Proxy）は SAM でデプロイ。Alexa 側（スキル定義）は ASK CLI でリポジトリ管理し `ask deploy` で更新。Lambda は SAM（Python）のまま、スキル定義だけ ASK CLI で扱うハイブリッド構成。
+- 設定ファイル・ディレクトリ構成・認証・Account Linking の扱いなど**具体的な構成は [data-class-design](./data-class-design.md) に記載する**。
 
 ### コスト概算
 - 合計：**0 円/月**（AWS 無料枠内）
@@ -109,7 +117,7 @@ Token Proxy の実装：
 - **Linter**: ruff（既存に則る）
 - **静的型検査**: mypy（既存に則る）
 - **ユニットテスト**: pytest
-- **IaC / デプロイ**: AWS SAM（`template.yaml`）
+- **IaC / デプロイ**: AWS 側は AWS SAM（`template.yaml`）。Alexa スキル定義は ASK CLI で管理し `ask deploy` でデプロイ（詳細は data-class-design 参照）。
 
 ### クライアント
 

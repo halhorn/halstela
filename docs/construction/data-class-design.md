@@ -16,7 +16,7 @@
 - **Token Proxy Lambda**: フレームワーク不要（標準ライブラリ + httpx）
 - **ライブラリ**: httpx, authlib
 - **パッケージ管理**: uv（`pyproject.toml` + `uv.lock`）
-- **IaC**: AWS SAM（`template.yaml`）
+- **IaC**: AWS 側は SAM（`template.yaml`）。Alexa スキル定義は ASK CLI（`skill-package/` + `ask-resources.json`）で管理し、`ask deploy` でデプロイする。
 - **トークン管理**: Alexa Account Linking が担う。Lambda はリクエストごとに Alexa から渡される access_token を使用
 - **車両 sleep 対応**: `wake_up` → ポーリングが必要（既存 `get_vehicle_data.py` の知見を流用）
 - **既存コードの方針**: 既存実装にはとらわれず再設計する。ビジネスロジックはモデル層（共通モジュール）に集約し、Lambda ハンドラーと CLI スクリプトはモデル層を呼び出す薄いラッパーとする
@@ -72,6 +72,16 @@ SAM の `BuildMethod: python-uv` は Lambda Function 向けの機能で、Lambda
 
 Smart Home Skill として、Skill Lambda が処理するディレクティブ。テスラを1つの「エンドポイント（デバイス）」として Alexa に登録し、複数のインターフェースを持たせる。
 
+- **スキル定義の管理**: マニフェストとインタラクションモデルは skill-package に置き、`ask deploy` で Alexa に反映する（詳細は下記「ASK CLI の構成・運用」）。
+
+#### ASK CLI の構成・運用
+
+- **skill-package**: スキルマニフェスト（`skill.json`）と各ロケールのインタラクションモデル（`interactionModels/locales/ja-JP.json` 等）を格納。`skill.json` の `manifest.apis.custom.endpoint.uri` に、SAM でデプロイした Lambda の ARN を指定する。
+- **ask-resources.json**: ASK CLI 用の設定。スキル ID やデプロイ対象プロファイルを指定。DEV/PRD でスキルを 2 つに分ける場合は、プロファイルまたは環境変数でスキル ID とエンドポイント ARN を切り替える。
+- **認証**: ASK CLI は Amazon Developer アカウント（LWA）で認証。`ask configure` または LWA の Client ID / Client Secret / Refresh Token を利用。CI で `ask deploy` する場合はこれらを Secrets に格納する。
+- **Account Linking**: 認可 URL・Token Proxy URL・Client ID 等は ASK CLI では直接編集しづらいため、初回は Alexa Developer Console で設定し、変更が少なければ手動運用とする。必要に応じて SMAPI をスクリプトから呼ぶ。
+- **ツール**: ASK CLI は Node.js 製。`npm install -g ask-cli` または `npx ask-cli` で利用する。
+
 #### デバイスディスカバリ
 
 | ディレクティブ | 処理 |
@@ -120,7 +130,14 @@ Lambda Function URL で公開する HTTPS エンドポイント。Alexa Account 
 halstela/                          # Repository root
 ├── pyproject.toml                 # ルート: halstela パッケージ定義 + dev deps
 ├── template.yaml                  # SAM テンプレート
-├── samconfig.toml                 # SAM デプロイ設定
+├── samconfig.toml                 # SAM デプロイ設定（gitignore）
+├── ask-resources.json             # ASK CLI 用。スキル ID・プロファイル指定
+├── skill-package/                 # Alexa スキル定義（ASK CLI で ask deploy）
+│   ├── skill.json                 # マニフェスト（スキル名・エンドポイント ARN 等）
+│   └── interactionModels/
+│       └── locales/
+│           └── ja-JP.json         # 日本語インタラクションモデル（Smart Home）
+├── .ask/                          # ASK CLI 状態（ask-states 等）。gitignore 推奨
 │
 ├── halstela/                      # 共通パッケージ（→ Lambda Layer）
 │   ├── __init__.py
