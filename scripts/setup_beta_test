@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Smart Home スキルのベータテストを作成・開始する。
+#
+# Smart Home スキルでは Developer Console のテストタブや
+# SMAPI の set-skill-enablement が使えないため、
+# ベータテスト機能でテスト有効化する。
+#
+# 用法: ./scripts/setup_beta_test [PROFILE]
+#   PROFILE: ASK CLI プロファイル（省略時: halhorn-dev）
+#
+# ベータテスト作成後、テスター追加は ./scripts/add_skill_testers で行う。
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+ASK_RESOURCES="$REPO_ROOT/ask-resources.json"
+PROFILE="${1:-halhorn-dev}"
+
+SKILL_ID=$(python3 -c "
+import json
+data = json.load(open('$ASK_RESOURCES'))
+sid = data.get('profiles',{}).get('$PROFILE',{}).get('skillId','')
+if not sid:
+    raise SystemExit(f'Error: skillId not found for profile $PROFILE')
+print(sid)
+")
+
+echo "=== ベータテスト セットアップ ==="
+echo "Skill ID: ${SKILL_ID}"
+echo "Profile:  ${PROFILE}"
+echo ""
+
+# --- Step 1: ベータテスト作成 ---
+echo "--- Step 1: ベータテスト作成 ---"
+create_output=$(ask smapi get-beta-test \
+  -s "$SKILL_ID" \
+  -p "$PROFILE" 2>&1) && exists=true || exists=false
+
+if $exists; then
+  status=$(echo "$create_output" | python3 -c "
+import json, sys
+print(json.load(sys.stdin).get('status','UNKNOWN'))
+" 2>/dev/null || echo "UNKNOWN")
+  echo "ℹ️  ベータテストは既に存在します (status: ${status})"
+else
+  echo "ベータテストを作成中..."
+  ask smapi create-beta-test \
+    -s "$SKILL_ID" \
+    -p "$PROFILE"
+  echo "✅ ベータテスト作成完了"
+  status="HIDDEN"
+fi
+echo ""
+
+# --- Step 2: ベータテスト開始 ---
+echo "--- Step 2: ベータテスト開始 ---"
+if [ "$status" = "RUNNING" ]; then
+  echo "ℹ️  ベータテストは既に RUNNING です"
+elif [ "$status" = "STOPPED" ] || [ "$status" = "HIDDEN" ]; then
+  echo "ベータテストを開始中..."
+  ask smapi start-beta-test \
+    -s "$SKILL_ID" \
+    -p "$PROFILE"
+  echo "✅ ベータテスト開始完了"
+else
+  echo "⚠️  予期しない status: ${status}（手動で確認してください）"
+fi
+echo ""
+
+# --- Step 3: 招待 URL 表示 ---
+echo "--- Step 3: 招待 URL ---"
+beta_output=$(ask smapi get-beta-test \
+  -s "$SKILL_ID" \
+  -p "$PROFILE" 2>&1)
+
+invite_url=$(echo "$beta_output" | python3 -c "
+import json, sys
+print(json.load(sys.stdin).get('invitationUrl',''))
+" 2>/dev/null || echo "")
+
+expiry=$(echo "$beta_output" | python3 -c "
+import json, sys
+print(json.load(sys.stdin).get('expiryDate','不明'))
+" 2>/dev/null || echo "不明")
+
+echo "招待 URL:   ${invite_url}"
+echo "有効期限:   ${expiry}"
+echo ""
+
+# JP マーケットプレイス用 URL
+if [ -n "$invite_url" ]; then
+  jp_url=$(echo "$invite_url" | sed 's/skills-store.amazon.com/skills-store.amazon.co.jp/')
+  echo "JP 用 URL:  ${jp_url}"
+  echo ""
+fi
+
+echo "=== 次のステップ ==="
+echo "  1. テスター追加:  ./scripts/add_skill_testers メールアドレス"
+echo "  2. モバイル端末で上記 JP 用 URL を開いて招待を受け入れる"
+echo "     ⚠️ デスクトップブラウザでは開かないこと"
