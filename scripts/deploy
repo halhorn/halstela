@@ -37,4 +37,8 @@ echo "=== Phase 2: Skill deploy (Alexa) ==="
 "$SCRIPT_DIR/deploy_skill.py" "$ENV_NAME"
 
 echo ""
+echo "=== Phase 3: Account Linking ==="
+"$SCRIPT_DIR/setup_account_linking.py" "$ENV_NAME"
+
+echo ""
 echo "=== Deploy complete! ==="
