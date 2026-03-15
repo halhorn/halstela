@@ -5,6 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from functions.token_proxy.handler import (
+    _extract_basic_auth,
     _parse_body,
     lambda_handler,
     proxy_token_request,
@@ -27,6 +28,44 @@ class TestParseBody:
         event = {"body": ""}
         result = _parse_body(event)
         assert result == {}
+
+    def test_basic_auth_header_extracted(self) -> None:
+        creds = base64.b64encode(b"my-client-id:my-client-secret").decode()
+        event = {
+            "body": "grant_type=authorization_code&code=abc123",
+            "isBase64Encoded": False,
+            "headers": {"authorization": f"Basic {creds}"},
+        }
+        result = _parse_body(event)
+        assert result["client_id"] == "my-client-id"
+        assert result["client_secret"] == "my-client-secret"
+        assert result["grant_type"] == "authorization_code"
+
+    def test_body_params_take_precedence_over_basic_auth(self) -> None:
+        creds = base64.b64encode(b"header-id:header-secret").decode()
+        event = {
+            "body": "grant_type=authorization_code&client_id=body-id&client_secret=body-secret",
+            "isBase64Encoded": False,
+            "headers": {"authorization": f"Basic {creds}"},
+        }
+        result = _parse_body(event)
+        assert result["client_id"] == "body-id"
+        assert result["client_secret"] == "body-secret"
+
+
+class TestExtractBasicAuth:
+    def test_valid_basic_auth(self) -> None:
+        creds = base64.b64encode(b"id:secret").decode()
+        event = {"headers": {"authorization": f"Basic {creds}"}}
+        assert _extract_basic_auth(event) == ("id", "secret")
+
+    def test_no_auth_header(self) -> None:
+        assert _extract_basic_auth({"headers": {}}) is None
+        assert _extract_basic_auth({}) is None
+
+    def test_non_basic_auth(self) -> None:
+        event = {"headers": {"authorization": "Bearer some-token"}}
+        assert _extract_basic_auth(event) is None
 
 
 class TestProxyTokenRequest:

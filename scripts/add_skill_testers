@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# テスラステラのベータテストにテスターを追加するスクリプト
+#
+# 使い方:
+#   ./scripts/add_skill_testers EMAIL [EMAIL ...]           # デフォルトプロファイル (halhorn-dev)
+#   ./scripts/add_skill_testers PROFILE EMAIL [EMAIL ...]   # プロファイル指定
+#
+# 例:
+#   ./scripts/add_skill_testers tester@example.com
+#   ./scripts/add_skill_testers halhorn-dev user1@ex.com user2@ex.com
+
+SKILL_ID="amzn1.ask.skill.33989666-d763-468d-9844-44d6adc39d17"
+DEFAULT_PROFILE="halhorn-dev"
+
+usage() {
+  echo "Usage: $0 [PROFILE] EMAIL [EMAIL ...]"
+  echo ""
+  echo "  PROFILE  - ASK CLI プロファイル（省略時: ${DEFAULT_PROFILE}）"
+  echo "  EMAIL    - 追加するテスターのメールアドレス（Alexa アプリにログインしている Amazon アカウント）"
+  echo ""
+  echo "例:"
+  echo "  $0 tester@example.com"
+  echo "  $0 halhorn-dev user1@example.com user2@example.com"
+  exit 1
+}
+
+# 引数: 1つの場合は EMAIL、2つ以上の場合は PROFILE EMAIL [EMAIL ...]
+if [ $# -eq 0 ]; then
+  usage
+fi
+
+if [ $# -eq 1 ]; then
+  PROFILE="$DEFAULT_PROFILE"
+  EMAILS="$1"
+else
+  # 先頭が @ を含む（メールアドレス）かどうかでプロファイル指定を判定
+  if [[ "$1" == *"@"* ]]; then
+    PROFILE="$DEFAULT_PROFILE"
+    EMAILS="$*"
+  else
+    PROFILE="$1"
+    shift
+    EMAILS="$*"
+  fi
+fi
+
+# カンマ区切りに正規化（複数引数で渡された場合）
+EMAILS_CSV=$(echo "$EMAILS" | tr ' ' ',')
+
+echo "=== テスラステラ テスター追加 ==="
+echo "Skill ID: ${SKILL_ID}"
+echo "Profile:  ${PROFILE}"
+echo "Emails:   ${EMAILS_CSV}"
+echo ""
+
+ask smapi add-testers-to-beta-test \
+  -s "$SKILL_ID" \
+  --testers-emails "$EMAILS_CSV" \
+  -p "$PROFILE"
+
+echo ""
+echo "✅ 招待を送信しました。テスターはモバイル端末の招待 URL から受け入れが必要です。"
+echo "   招待 URL の確認: ask smapi get-beta-test -s ${SKILL_ID} -p ${PROFILE}"

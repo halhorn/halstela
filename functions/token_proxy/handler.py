@@ -68,10 +68,33 @@ def proxy_token_request(params: dict[str, str]) -> dict[str, Any]:
         return response.json()  # type: ignore[no-any-return]
 
 
+def _extract_basic_auth(event: dict[str, Any]) -> tuple[str, str] | None:
+    """Authorization ヘッダーから Basic 認証の client_id / client_secret を取得する。
+
+    Alexa Account Linking の accessTokenScheme が HTTP_BASIC の場合、
+    client_id と client_secret は body ではなく Authorization ヘッダーで送られる。
+    """
+    headers = event.get("headers", {})
+    auth = headers.get("authorization") or headers.get("Authorization") or ""
+    if not auth.lower().startswith("basic "):
+        return None
+
+    decoded = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8")
+    client_id, _, client_secret = decoded.partition(":")
+    return client_id, client_secret
+
+
 def _parse_body(event: dict[str, Any]) -> dict[str, str]:
     body = event.get("body", "")
     if event.get("isBase64Encoded", False):
         body = base64.b64decode(body).decode("utf-8")
 
     parsed = parse_qs(body, keep_blank_values=True)
-    return {k: v[0] for k, v in parsed.items()}
+    params = {k: v[0] for k, v in parsed.items()}
+
+    credentials = _extract_basic_auth(event)
+    if credentials:
+        params.setdefault("client_id", credentials[0])
+        params.setdefault("client_secret", credentials[1])
+
+    return params
