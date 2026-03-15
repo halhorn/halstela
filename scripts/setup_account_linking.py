@@ -60,19 +60,27 @@ def get_skill_id(profile: str) -> str:
 
 
 def get_token_proxy_url(aws_profile: str) -> str:
-    out = run([
-        "aws", "cloudformation", "describe-stacks",
-        "--stack-name", STACK_NAME,
-        "--region", REGION,
-        "--profile", aws_profile,
-        "--query", "Stacks[0].Outputs[?OutputKey=='TokenProxyUrl'].OutputValue",
-        "--output", "text",
-    ])
+    out = run(
+        [
+            "aws",
+            "cloudformation",
+            "describe-stacks",
+            "--stack-name",
+            STACK_NAME,
+            "--region",
+            REGION,
+            "--profile",
+            aws_profile,
+            "--query",
+            "Stacks[0].Outputs[?OutputKey=='TokenProxyUrl'].OutputValue",
+            "--output",
+            "text",
+        ]
+    )
     url = out.strip()
     if not url or url == "None":
         sys.exit(
-            f"Error: TokenProxyUrl not found in stack '{STACK_NAME}'.\n"
-            "Run 'sam deploy' first."
+            f"Error: TokenProxyUrl not found in stack '{STACK_NAME}'.\nRun 'sam deploy' first."
         )
     return url
 
@@ -121,20 +129,37 @@ def main() -> None:
 
     account_linking_json = json.dumps({"accountLinkingRequest": account_linking})
 
-    run([
-        "ask", "smapi", "update-account-linking-info",
-        "-s", skill_id,
-        "-g", "development",
-        "-p", profile,
-        "--account-linking-request", account_linking_json,
-    ])
+    run(
+        [
+            "ask",
+            "smapi",
+            "update-account-linking-info",
+            "-s",
+            skill_id,
+            "-g",
+            "development",
+            "-p",
+            profile,
+            "--account-linking-request",
+            account_linking_json,
+        ]
+    )
 
     print("\n✅ Account Linking configured successfully!")
 
-    out = run([
-        "ask", "smapi", "get-account-linking-info",
-        "-s", skill_id, "-g", "development", "-p", profile,
-    ])
+    out = run(
+        [
+            "ask",
+            "smapi",
+            "get-account-linking-info",
+            "-s",
+            skill_id,
+            "-g",
+            "development",
+            "-p",
+            profile,
+        ]
+    )
     info = json.loads(out)
     redirect_urls = info.get("accountLinkingResponse", {}).get("redirectUrls", [])
 
