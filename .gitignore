@@ -46,7 +46,7 @@ samconfig.toml
 .ask/
 
 # ドキュメント
-mdc/
+planning/
 
 # OS
 .DS_Store
