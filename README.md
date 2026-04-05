@@ -31,6 +31,44 @@ scripts/              # デプロイ・ユーティリティスクリプト
 template.yaml         # SAM テンプレート
 ```
 
+## スクリプトで動作確認する
+
+### 1. Tesla OAuth トークンを取得する
+
+初回は認可フローを実行する。ブラウザが開くので Tesla アカウントでログインし、権限を許可する。
+
+```bash
+uv run python scripts/oauth_token.py
+```
+
+トークンは `secret/token.json` に保存される。次回以降はリフレッシュトークンで更新できる。
+
+```bash
+uv run python scripts/oauth_token.py --refresh
+```
+
+### 2. 車両情報を取得する
+
+```bash
+uv run python scripts/get_vehicle_data.py
+```
+
+バッテリー残量・車内外温度・充電状態・車両設定などが JSON で出力される。
+
+複数台所有している場合は環境変数で対象 VIN を指定できる。
+
+```bash
+TESLA_TARGET_VIN=LRWYHCFJ7SC307595 uv run python scripts/get_vehicle_data.py
+```
+
+### 3. エアコンを起動する
+
+```bash
+uv run python scripts/start_air_conditioning.py
+```
+
+車両がスリープ中の場合は自動で wake_up してからコマンドを送信する（最大 60 秒待機）。
+
 ## テスト・Lint
 
 ```bash
