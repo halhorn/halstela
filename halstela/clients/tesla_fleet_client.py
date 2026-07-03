@@ -1,8 +1,13 @@
 """Tesla Fleet API クライアント（Client 層）"""
 
-from typing import Any, Protocol, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import httpx
+
+if TYPE_CHECKING:
+    from halstela.config import TeslaConfig
 
 
 class TeslaAPIError(Exception):
@@ -118,3 +123,21 @@ class TeslaFleetClient:
             return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as exc:
             raise TeslaAPIError(exc.response.status_code, exc.response.text) from exc
+
+
+def create_fleet_client(access_token: str, config: TeslaConfig) -> TeslaFleetClient:
+    """TeslaConfig から適切な CommandSender を選択して TeslaFleetClient を生成する。"""
+    command_sender: CommandSender | None = None
+    if config.private_key_pem:
+        from halstela.clients.signed_command_sender import SignedCommandSender
+
+        command_sender = SignedCommandSender(
+            access_token=access_token,
+            private_key_pem=config.private_key_pem,
+            base_url=config.fleet_api_base_url,
+        )
+    return TeslaFleetClient(
+        access_token=access_token,
+        base_url=config.fleet_api_base_url,
+        command_sender=command_sender,
+    )
