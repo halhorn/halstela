@@ -3,6 +3,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -17,12 +18,30 @@ def _read_ssm(prefix: str) -> dict[str, str]:
     import boto3
 
     ssm = boto3.client("ssm")
-    names = [f"{prefix}/tesla-client-id", f"{prefix}/tesla-client-secret"]
+    names = [
+        f"{prefix}/tesla-client-id",
+        f"{prefix}/tesla-client-secret",
+        f"{prefix}/tesla-private-key",
+    ]
     resp = ssm.get_parameters(Names=names, WithDecryption=True)
 
     result = {p["Name"].rsplit("/", 1)[-1]: p["Value"] for p in resp["Parameters"]}
     _ssm_cache[prefix] = result
     return result
+
+
+def _load_private_key_from_file() -> str | None:
+    """ローカル環境で秘密鍵ファイルを読み込む。"""
+    key_file = os.environ.get("TESLA_PRIVATE_KEY_FILE")
+    if key_file:
+        path = Path(key_file)
+    else:
+        repo_root = Path(__file__).resolve().parents[1]
+        path = repo_root / "secret" / "private.pem"
+
+    if path.exists():
+        return path.read_text()
+    return None
 
 
 @dataclass
@@ -35,6 +54,7 @@ class TeslaConfig:
     oauth_scopes: str = "openid offline_access vehicle_device_data vehicle_cmds vehicle_location"
     partner_scope: str = "openid offline_access"
     token_file: str | None = None
+    private_key_pem: str | None = None
 
     @classmethod
     def from_env(cls) -> "TeslaConfig":
@@ -50,18 +70,21 @@ class TeslaConfig:
             params = _read_ssm(ssm_prefix)
             client_id = params.get("tesla-client-id", "")
             client_secret = params.get("tesla-client-secret", "")
+            private_key_pem = params.get("tesla-private-key")
         else:
             client_id = os.environ.get("TESLA_CLIENT_ID", "")
             client_secret = os.environ.get("TESLA_CLIENT_SECRET", "")
+            private_key_pem = _load_private_key_from_file()
 
         if not client_id:
             raise ValueError("TESLA_CLIENT_ID is required (set in .env or SSM)")
         if not client_secret:
             raise ValueError("TESLA_CLIENT_SECRET is required (set in .env or SSM)")
 
-        kwargs: dict[str, str] = {
+        kwargs: dict[str, Any] = {
             "client_id": client_id,
             "client_secret": client_secret,
+            "private_key_pem": private_key_pem,
         }
         optional_fields = (
             "fleet_api_base_url",
