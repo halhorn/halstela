@@ -98,6 +98,60 @@ uv run ruff check .
 uv run mypy halstela
 ```
 
+## デプロイ環境のセットアップ（初回のみ）
+
+デプロイには AWS プロファイル・ASK CLI プロファイル・SSM パラメータの準備が必要。DEV/PRD は別 AWS アカウントのため、それぞれ `halhorn-dev` / `halhorn-prd` という名前で用意する（`scripts/deploy` がこの名前を参照する）。以下は DEV の例。
+
+### 1. AWS プロファイル
+
+デプロイ先リージョンは `us-west-2`。
+
+```bash
+aws configure --profile halhorn-dev
+# Access Key / Secret を入力、region は us-west-2
+aws sts get-caller-identity --profile halhorn-dev  # 対象アカウントか確認
+```
+
+### 2. ASK CLI プロファイル（Alexa スキル反映用）
+
+```bash
+npm install -g ask-cli          # 未インストールなら
+ask configure --profile halhorn-dev
+```
+
+ブラウザで **スキルを所有する Amazon 開発者アカウント**にログインすること。別アカウントでログインすると `There is no Vendor ID associated with your account` や以降の SMAPI 呼び出しで `401` になる。ブラウザに別アカウントのセッションが残っている場合は、一度ログアウトしてから実行する。
+
+設定できたか確認：
+
+```bash
+ask smapi list-skills-for-vendor -p halhorn-dev   # スキル一覧が返れば OK
+```
+
+### 3. SSM パラメータ
+
+秘密情報（Tesla Client ID/Secret、署名用秘密鍵、Alexa Skill ID）は SSM Parameter Store（`/halstela/*`）に置く。ダミー値で枠を作成後、実値で上書きする。
+
+```bash
+./scripts/setup_ssm.py dev    # ダミー値でパラメータ作成（既存はスキップ）
+
+# 実値で上書き（--profile halhorn-dev / --region us-west-2）
+aws ssm put-parameter --name /halstela/tesla-client-id \
+  --type SecureString --value 'REAL_VALUE' --overwrite \
+  --region us-west-2 --profile halhorn-dev
+# tesla-client-secret も同様
+
+# 署名用秘密鍵はファイルから登録
+aws ssm put-parameter --name /halstela/tesla-private-key \
+  --type SecureString --value "$(cat secret/private.pem)" --overwrite \
+  --region us-west-2 --profile halhorn-dev
+```
+
+Lambda は起動時に SSM から秘密鍵を読み込み、Vehicle Command Protocol の署名に使う。`tesla-private-key` が未登録だと署名できず、車両コマンドが失敗する。
+
+### 4. `.env` の Lambda ARN
+
+`scripts/deploy_skill.py` がスキル定義に埋め込む Lambda ARN を `.env` に設定する（`HALSTELA_DEV_LAMBDA_ARN` / `HALSTELA_PRD_LAMBDA_ARN`）。初回は `./scripts/deploy dev` の SAM デプロイ後に出力される ARN を控えて記入する。
+
 ## デプロイ
 
 Lambda（SAM）と Alexa スキル定義をまとめてデプロイする。
@@ -114,3 +168,10 @@ Lambda（SAM）と Alexa スキル定義をまとめてデプロイする。
 3. `ask smapi update-skill-manifest` — スキル定義（エンドポイント含む）を Alexa に反映
 
 スキル定義のみ再デプロイしたい場合は `./scripts/deploy_skill.py dev` を単独で実行できる（`.env` の `HALSTELA_DEV_LAMBDA_ARN` を参照）。
+
+## トラブルシューティング
+
+- **`Failed to spawn: sam` / `No such file or directory`**: プロジェクトディレクトリを移動すると `.venv` 内の console-script（`sam` 等）の shebang が旧パスを指したままになり起動できなくなる。`rm -rf .venv && uv sync --all-extras` で venv を作り直す。
+- **`ask` で `There is no Vendor ID` または SMAPI が `401`**: `ask configure` のログインがスキル所有アカウントと異なる。ブラウザで Amazon からログアウトし、正しいアカウントで `ask configure --profile halhorn-dev` をやり直す。
+- **車両コマンドが `UnknownKeyId` で失敗**: バーチャルキーが車両に未登録。「スクリプトで動作確認する」手順 3 を参照。
+- **`unauthorized_client: The 'client_id' parameter was not provided`**: OAuth トークン更新時のエラー。`.env` の `TESLA_CLIENT_ID` / `TESLA_CLIENT_SECRET` が設定されているか確認する。
