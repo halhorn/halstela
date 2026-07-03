@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from halstela.clients.tesla_fleet_client import TeslaFleetClient
+from halstela.clients.tesla_fleet_client import TeslaFleetClient, create_fleet_client
 from halstela.config import TeslaConfig
 from halstela.models.climate_state import ClimateState
 from halstela.models.vehicle import Vehicle
@@ -74,7 +74,7 @@ def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
     vehicle_id = endpoint["endpointId"]
     config = TeslaConfig.from_env()
 
-    with TeslaFleetClient(token, config.fleet_api_base_url) as client:
+    with create_fleet_client(token, config) as client:
         service = VehicleService(client)
         if name == "TurnOn":
             result = service.start_air_conditioning(vehicle_id)

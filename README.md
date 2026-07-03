@@ -61,13 +61,34 @@ uv run python scripts/get_vehicle_data.py
 TESLA_TARGET_VIN=LRWYHCFJ7SC307595 uv run python scripts/get_vehicle_data.py
 ```
 
-### 3. エアコンを起動する
+### 3. 車両にバーチャルキーを登録する（初回のみ）
+
+エアコン起動などの車両コマンドは Tesla Vehicle Command Protocol に対応しており、アプリの秘密鍵で署名して送信する。車両がその署名を検証できるよう、公開鍵を車両に登録（ペアリング）しておく必要がある。これを行わないとコマンド送信時に `UnknownKeyId`（Vehicle did not recognize the key）エラーになる。
+
+前提として、公開鍵が Developer Portal に登録するドメイン上で配信されていること（`https://halhorn.github.io/.well-known/appspecific/com.tesla.3p.public-key.pem`）。
+
+登録は Tesla モバイルアプリのディープリンクで行う。
+
+1. 対象車両のオーナーでログイン済みの Tesla アプリが入ったスマートフォンを用意する
+2. スマートフォンで次の URL を開く
+
+   ```
+   https://tesla.com/_ak/halhorn.github.io
+   ```
+
+3. Tesla アプリが起動し、バーチャルキー追加の確認が表示されるので承認する
+
+承認後、アプリの「ロック → キー」一覧に追加された鍵が表示される。この登録は一度行えば有効で、車両から離れていても実行できる（BLE や車内タッチスクリーン操作は不要）。
+
+### 4. エアコンを起動する
 
 ```bash
 uv run python scripts/start_air_conditioning.py
 ```
 
 車両がスリープ中の場合は自動で wake_up してからコマンドを送信する（最大 60 秒待機）。
+
+コマンドは秘密鍵（`secret/private.pem`）で署名して送信される。`UnknownKeyId` エラーが出る場合は手順 3 のバーチャルキー登録が未完了なので、先にそちらを行う。
 
 ## テスト・Lint
 

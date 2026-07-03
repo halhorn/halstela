@@ -1,9 +1,8 @@
 """OAuth2 管理モジュール（authlib 使用）"""
 
 import secrets
-from typing import Any, cast
+from typing import Any
 
-import httpx
 from authlib.integrations.httpx_client import OAuth2Client
 
 from halstela.auth.token import TokenManager
@@ -11,7 +10,11 @@ from halstela.config import TeslaConfig
 
 
 class TeslaOAuth2:
-    """Tesla OAuth2 クライアント（CLI スクリプト用）"""
+    """Tesla OAuth2 クライアント（CLI スクリプト用）
+
+    Tesla の Token Endpoint は client_id / client_secret を
+    リクエストボディで受け取るため ``client_secret_post`` を使う。
+    """
 
     def __init__(self, config: TeslaConfig) -> None:
         self.config = config
@@ -19,6 +22,8 @@ class TeslaOAuth2:
             client_id=config.client_id,
             client_secret=config.client_secret,
             token_endpoint=config.token_url,
+            token_endpoint_auth_method="client_secret_post",
+            scope=config.oauth_scopes,
         )
 
     def create_authorization_url(
@@ -56,26 +61,17 @@ class TeslaOAuth2:
         code_verifier: str | None = None,
     ) -> dict[str, Any]:
         """authorization code をトークンに交換"""
-        body: dict[str, str] = {
+        params: dict[str, Any] = {
             "grant_type": "authorization_code",
-            "client_id": self.config.client_id,
-            "client_secret": self.config.client_secret,
             "code": code,
             "redirect_uri": redirect_uri,
             "audience": self.config.fleet_api_base_url,
-            "scope": self.config.oauth_scopes,
         }
         if code_verifier:
-            body["code_verifier"] = code_verifier
+            params["code_verifier"] = code_verifier
 
-        with httpx.Client(timeout=20.0) as http:
-            response = http.post(
-                self.config.token_url,
-                data=body,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            response.raise_for_status()
-            return cast(dict[str, Any], response.json())
+        token = self.client.fetch_token(self.config.token_url, **params)
+        return dict(token)
 
     def refresh_token(self, refresh_token: str | None = None) -> dict[str, Any]:
         """refresh token でトークンを更新"""
@@ -86,31 +82,24 @@ class TeslaOAuth2:
         token = self.client.refresh_token(
             self.config.token_url,
             refresh_token=refresh_token,
+            audience=self.config.fleet_api_base_url,
         )
         result = dict(token)
 
         if "refresh_token" not in result:
             result["refresh_token"] = refresh_token
 
-        return cast(dict[str, Any], result)
+        return result
 
     def get_partner_token(self) -> str:
         """client_credentials で partner token を取得"""
-        with httpx.Client(timeout=20.0) as http:
-            response = http.post(
-                self.config.token_url,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.config.client_id,
-                    "client_secret": self.config.client_secret,
-                    "scope": self.config.partner_scope,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            response.raise_for_status()
-            payload = response.json()
+        token = self.client.fetch_token(
+            self.config.token_url,
+            grant_type="client_credentials",
+            scope=self.config.partner_scope,
+        )
 
-        token = payload.get("access_token")
-        if not token:
-            raise RuntimeError(f"partner token 取得に失敗しました: {payload}")
-        return str(token)
+        access_token = token.get("access_token")
+        if not access_token:
+            raise RuntimeError(f"partner token 取得に失敗しました: {dict(token)}")
+        return str(access_token)

@@ -5,7 +5,7 @@ import os
 import sys
 
 from halstela.auth.token import TokenManager
-from halstela.clients.tesla_fleet_client import TeslaFleetClient
+from halstela.clients.tesla_fleet_client import create_fleet_client
 from halstela.config import TeslaConfig
 from halstela.services.vehicle_service import VehicleService
 
@@ -20,7 +20,7 @@ def main() -> int:
     try:
         token = _get_access_token(config)
 
-        with TeslaFleetClient(token, config.fleet_api_base_url) as client:
+        with create_fleet_client(token, config) as client:
             service = VehicleService(client)
             vehicles = service.get_vehicles()
 
