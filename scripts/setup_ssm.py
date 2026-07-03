@@ -17,6 +17,11 @@ PARAMS: list[dict[str, str]] = [
         "type": "SecureString",
         "dummy": "CHANGE_ME_client_secret",
     },
+    {
+        "name": "/halstela/tesla-private-key",
+        "type": "SecureString",
+        "dummy": "CHANGE_ME_private_key_pem",
+    },
     {"name": "/halstela/alexa-skill-id", "type": "String", "dummy": "amzn1.ask.skill.CHANGE_ME"},
 ]
 
@@ -73,6 +78,11 @@ def main() -> None:
     print("Done. Update values with:")
     print("  aws ssm put-parameter --name /halstela/tesla-client-id \\")
     print("    --type SecureString --value 'REAL_VALUE' --overwrite \\")
+    print(f"    --region {REGION} --profile {profile}")
+    print()
+    print("  # 秘密鍵はファイルから登録する:")
+    print("  aws ssm put-parameter --name /halstela/tesla-private-key \\")
+    print('    --type SecureString --value "$(cat secret/private.pem)" --overwrite \\')
     print(f"    --region {REGION} --profile {profile}")
 
 
