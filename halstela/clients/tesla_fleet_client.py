@@ -1,6 +1,6 @@
 """Tesla Fleet API クライアント（Client 層）"""
 
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import httpx
 
@@ -11,6 +11,35 @@ class TeslaAPIError(Exception):
     def __init__(self, status_code: int, message: str) -> None:
         self.status_code = status_code
         super().__init__(f"HTTP {status_code}: {message}")
+
+
+class CommandSender(Protocol):
+    """車両コマンド送信の抽象インターフェース。"""
+
+    def send_command(
+        self, vehicle_id: str, command: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]: ...
+
+
+class RestCommandSender:
+    """従来の REST API によるコマンド送信。"""
+
+    def __init__(self, http_client: httpx.Client) -> None:
+        self._client = http_client
+
+    def send_command(
+        self, vehicle_id: str, command: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        try:
+            response = self._client.post(
+                f"/api/1/vehicles/{vehicle_id}/command/{command}",
+                json=body or {},
+            )
+            response.raise_for_status()
+            data: dict[str, Any] = response.json()
+            return cast(dict[str, Any], data.get("response", {}))
+        except httpx.HTTPStatusError as exc:
+            raise TeslaAPIError(exc.response.status_code, exc.response.text) from exc
 
 
 class TeslaFleetClient:
@@ -24,6 +53,7 @@ class TeslaFleetClient:
         access_token: str,
         base_url: str = "https://fleet-api.prd.na.vn.cloud.tesla.com",
         timeout: float = 30.0,
+        command_sender: CommandSender | None = None,
     ) -> None:
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
@@ -33,6 +63,7 @@ class TeslaFleetClient:
             },
             timeout=timeout,
         )
+        self._command_sender = command_sender or RestCommandSender(self._client)
 
     def close(self) -> None:
         self._client.close()
@@ -66,8 +97,7 @@ class TeslaFleetClient:
     def send_command(
         self, vehicle_id: str, command: str, body: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        data = self._post(f"/api/1/vehicles/{vehicle_id}/command/{command}", json=body or {})
-        return cast(dict[str, Any], data.get("response", {}))
+        return self._command_sender.send_command(vehicle_id, command, body)
 
     def wake_up(self, vehicle_id: str) -> dict[str, Any]:
         data = self._post(f"/api/1/vehicles/{vehicle_id}/wake_up", json={})
