@@ -17,6 +17,7 @@ from functions.skill.handler import (
 def _env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TESLA_CLIENT_ID", "test-id")
     monkeypatch.setenv("TESLA_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("COMMAND_WORKER_ARN", "arn:aws:lambda:us-west-2:123:function:worker")
 
 
 def _make_directive(
@@ -103,34 +104,49 @@ class TestHandleDiscovery:
 
 
 class TestHandlePowerControl:
-    @patch("functions.skill.handler.TeslaFleetClient")
-    @patch("functions.skill.handler.VehicleService")
-    def test_turn_on_success(self, mock_svc_cls: MagicMock, mock_client_cls: MagicMock) -> None:
-        from halstela.models.command_result import CommandResult
+    def test_turn_on_invokes_worker_and_returns_response(self) -> None:
+        from halstela.models.worker_command import WorkerCommand
 
-        mock_svc = mock_svc_cls.return_value
-        mock_svc.start_air_conditioning.return_value = CommandResult(success=True, reason="")
-
+        mock_invoker = MagicMock()
         directive = _make_directive("Alexa.PowerController", "TurnOn", endpoint_id="VIN1")
-        result = handle_power_control(directive)
+        with patch(
+            "functions.skill.handler._create_worker_invoker", return_value=mock_invoker
+        ):
+            result = handle_power_control(directive)
 
         assert result["event"]["header"]["name"] == "Response"
         assert result["event"]["endpoint"]["endpointId"] == "VIN1"
-
-    @patch("functions.skill.handler.TeslaFleetClient")
-    @patch("functions.skill.handler.VehicleService")
-    def test_turn_on_failure(self, mock_svc_cls: MagicMock, mock_client_cls: MagicMock) -> None:
-        from halstela.models.command_result import CommandResult
-
-        mock_svc = mock_svc_cls.return_value
-        mock_svc.start_air_conditioning.return_value = CommandResult(
-            success=False, reason="vehicle_unavailable"
+        mock_invoker.invoke_async.assert_called_once_with(
+            WorkerCommand(
+                access_token="test-token",
+                vehicle_id="VIN1",
+                command="auto_conditioning_start",
+                correlation_token="corr-1",
+            )
         )
 
-        directive = _make_directive("Alexa.PowerController", "TurnOn", endpoint_id="VIN1")
+    def test_turn_on_invoke_failure_returns_error_via_lambda_handler(self) -> None:
+        from halstela.clients.worker_invoker import WorkerInvokeError
+
+        mock_invoker = MagicMock()
+        mock_invoker.invoke_async.side_effect = WorkerInvokeError("invoke failed")
+        event = {
+            "directive": _make_directive("Alexa.PowerController", "TurnOn", endpoint_id="VIN1")
+        }
+        with patch(
+            "functions.skill.handler._create_worker_invoker", return_value=mock_invoker
+        ):
+            result = lambda_handler(event, None)
+
+        assert result["event"]["header"]["name"] == "ErrorResponse"
+        assert result["event"]["payload"]["type"] == "INTERNAL_ERROR"
+
+    def test_turn_off_unsupported(self) -> None:
+        directive = _make_directive("Alexa.PowerController", "TurnOff", endpoint_id="VIN1")
         result = handle_power_control(directive)
 
         assert result["event"]["header"]["name"] == "ErrorResponse"
+        assert result["event"]["payload"]["type"] == "INVALID_DIRECTIVE"
 
 
 class TestHandleReportState:

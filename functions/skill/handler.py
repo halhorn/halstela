@@ -1,14 +1,17 @@
 """Alexa Smart Home Skill Lambda ハンドラー"""
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from halstela.clients.tesla_fleet_client import TeslaFleetClient, create_fleet_client
+from halstela.clients.tesla_fleet_client import TeslaFleetClient
+from halstela.clients.worker_invoker import WorkerInvoker
 from halstela.config import TeslaConfig
 from halstela.models.climate_state import ClimateState
 from halstela.models.vehicle import Vehicle
+from halstela.models.worker_command import WorkerCommand
 from halstela.services.vehicle_service import VehicleService
 
 logger = logging.getLogger(__name__)
@@ -72,19 +75,19 @@ def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
     endpoint = directive["endpoint"]
     token = endpoint["scope"]["token"]
     vehicle_id = endpoint["endpointId"]
-    config = TeslaConfig.from_env()
 
-    with create_fleet_client(token, config) as client:
-        service = VehicleService(client)
-        if name == "TurnOn":
-            result = service.start_air_conditioning(vehicle_id)
-        else:
-            return _error_response(
-                directive, "INVALID_DIRECTIVE", f"Unsupported: PowerController.{name}"
-            )
+    if name != "TurnOn":
+        return _error_response(
+            directive, "INVALID_DIRECTIVE", f"Unsupported: PowerController.{name}"
+        )
 
-    if not result.success:
-        return _error_response(directive, "ENDPOINT_UNREACHABLE", result.reason)
+    command = WorkerCommand(
+        access_token=token,
+        vehicle_id=vehicle_id,
+        command="auto_conditioning_start",
+        correlation_token=header.get("correlationToken") or None,
+    )
+    _create_worker_invoker().invoke_async(command)
 
     return {
         "event": {
@@ -99,6 +102,10 @@ def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
             "payload": {},
         },
     }
+
+
+def _create_worker_invoker() -> WorkerInvoker:
+    return WorkerInvoker(os.environ["COMMAND_WORKER_ARN"])
 
 
 # ── ReportState ──
