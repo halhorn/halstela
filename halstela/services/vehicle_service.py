@@ -54,7 +54,7 @@ class VehicleService:
             driver_temp_setting=float(climate.get("driver_temp_setting", 0.0)),
         )
 
-    def start_air_conditioning(self, vehicle_id: str) -> CommandResult:
+    def auto_conditioning_start(self, vehicle_id: str) -> CommandResult:
         self.ensure_awake(vehicle_id)
         result = self._client.send_command(vehicle_id, "auto_conditioning_start")
         return CommandResult(

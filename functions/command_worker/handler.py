@@ -48,5 +48,5 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
 def _execute(service: VehicleService, command: WorkerCommand) -> CommandResult:
     if command.command == "auto_conditioning_start":
-        return service.start_air_conditioning(command.vehicle_id)
+        return service.auto_conditioning_start(command.vehicle_id)
     raise ValueError(f"Unsupported worker command: {command.command}")

@@ -19,7 +19,7 @@ class TestCommandWorkerHandler:
         mock_create_client: MagicMock,
     ) -> None:
         mock_svc = mock_svc_cls.return_value
-        mock_svc.start_air_conditioning.return_value = CommandResult(success=True, reason="")
+        mock_svc.auto_conditioning_start.return_value = CommandResult(success=True, reason="")
         mock_create_client.return_value.__enter__.return_value = MagicMock()
 
         event = {
@@ -30,7 +30,7 @@ class TestCommandWorkerHandler:
         result = lambda_handler(event, None)
 
         assert result == {"success": True, "reason": ""}
-        mock_svc.start_air_conditioning.assert_called_once_with("VIN1")
+        mock_svc.auto_conditioning_start.assert_called_once_with("VIN1")
         mock_config_cls.from_env.assert_called_once()
 
     @patch("functions.command_worker.handler.create_fleet_client")
@@ -43,7 +43,7 @@ class TestCommandWorkerHandler:
         mock_create_client: MagicMock,
     ) -> None:
         mock_svc = mock_svc_cls.return_value
-        mock_svc.start_air_conditioning.return_value = CommandResult(
+        mock_svc.auto_conditioning_start.return_value = CommandResult(
             success=False, reason="vehicle_unavailable"
         )
         mock_create_client.return_value.__enter__.return_value = MagicMock()
@@ -74,7 +74,7 @@ class TestCommandWorkerHandler:
         }
         with pytest.raises(ValueError, match="Unsupported worker command"):
             lambda_handler(event, None)
-        mock_svc_cls.return_value.start_air_conditioning.assert_not_called()
+        mock_svc_cls.return_value.auto_conditioning_start.assert_not_called()
         assert "Invalid worker command" in caplog.text
 
     def test_invalid_payload_raises(self, caplog: pytest.LogCaptureFixture) -> None:

@@ -29,7 +29,7 @@ def main() -> int:
             print(f"対象車両: {vehicle.display_name} ({vehicle.vin})")
 
             print("エアコンを起動しています...")
-            result = service.start_air_conditioning(vehicle.vin)
+            result = service.auto_conditioning_start(vehicle.vin)
 
             if result.success:
                 print("エアコンを起動しました。")
