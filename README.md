@@ -144,6 +144,13 @@ aws ssm put-parameter --name /halstela/tesla-client-id \
 aws ssm put-parameter --name /halstela/tesla-private-key \
   --type SecureString --value "$(cat secret/private.pem)" --overwrite \
   --region us-west-2 --profile halhorn-dev
+
+# Alexa Event Gateway（ChangeReport）用。開発者コンソール → 権限 → Send Alexa Events を ON にし、
+# 表示される Alexa Skill Messaging の Client Id / Secret を登録する。
+aws ssm put-parameter --name /halstela/alexa-lwa-client-id \
+  --type SecureString --value 'REAL_VALUE' --overwrite \
+  --region us-west-2 --profile halhorn-dev
+# alexa-lwa-client-secret も同様
 ```
 
 Lambda は起動時に SSM から秘密鍵を読み込み、Vehicle Command Protocol の署名に使う。`tesla-private-key` が未登録だと署名できず、車両コマンドが失敗する。
@@ -168,6 +175,8 @@ Lambda（SAM）と Alexa スキル定義をまとめてデプロイする。
 3. `ask smapi update-skill-manifest` — スキル定義（エンドポイント含む）を Alexa に反映
 
 スキル定義のみ再デプロイしたい場合は `./scripts/deploy_skill.py dev` を単独で実行できる（`.env` の `HALSTELA_DEV_LAMBDA_ARN` を参照）。
+
+ChangeReport を使う場合、デプロイ後にスキルを一度無効化して再有効化する。Alexa が `AcceptGrant` を送り、Event Gateway 用の LWA トークンが SSM に保存される。その後「デバイスを検出して」で capabilities を取り直す。
 
 ## トラブルシューティング
 

@@ -27,7 +27,8 @@ class TestCommandWorkerHandler:
             "vehicle_id": "VIN1",
             "command": "auto_conditioning_start",
         }
-        result = lambda_handler(event, None)
+        with patch("functions.command_worker.handler._send_change_report"):
+            result = lambda_handler(event, None)
 
         assert result == {"success": True, "reason": ""}
         mock_svc.auto_conditioning_start.assert_called_once_with("VIN1")
@@ -81,3 +82,89 @@ class TestCommandWorkerHandler:
         with pytest.raises(ValueError, match="missing required fields"):
             lambda_handler({"access_token": "token"}, None)
         assert "Invalid worker command" in caplog.text
+
+    @patch("functions.command_worker.handler.create_fleet_client")
+    @patch("functions.command_worker.handler.VehicleService")
+    @patch("functions.command_worker.handler.TeslaConfig")
+    def test_success_sends_change_report(
+        self,
+        mock_config_cls: MagicMock,
+        mock_svc_cls: MagicMock,
+        mock_create_client: MagicMock,
+    ) -> None:
+        from halstela.alexa.lwa import LwaTokens
+        from halstela.models.climate_state import ClimateState
+
+        mock_svc = mock_svc_cls.return_value
+        mock_svc.auto_conditioning_start.return_value = CommandResult(success=True, reason="")
+        mock_svc.get_climate_state.return_value = ClimateState(
+            inside_temp=22.0, outside_temp=10.0, is_climate_on=True, driver_temp_setting=22.0
+        )
+        mock_create_client.return_value.__enter__.return_value = MagicMock()
+        mock_store = MagicMock()
+        mock_store.load.return_value = LwaTokens(access_token="lwa", refresh_token="rt")
+        mock_gateway = MagicMock()
+        mock_gateway.__enter__.return_value = mock_gateway
+        mock_gateway.__exit__.return_value = False
+        event = {
+            "access_token": "token",
+            "vehicle_id": "VIN1",
+            "command": "auto_conditioning_start",
+        }
+        with (
+            patch(
+                "functions.command_worker.handler._create_lwa_token_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "functions.command_worker.handler._create_event_gateway_client",
+                return_value=mock_gateway,
+            ),
+        ):
+            lambda_handler(event, None)
+
+        mock_gateway.send_change_report.assert_called_once()
+        args = mock_gateway.send_change_report.call_args.args
+        assert args[0] == "lwa"
+        assert args[1] == "VIN1"
+        assert args[2][0]["name"] == "powerState"
+        assert args[2][0]["value"] == "ON"
+
+    @patch("functions.command_worker.handler.create_fleet_client")
+    @patch("functions.command_worker.handler.VehicleService")
+    @patch("functions.command_worker.handler.TeslaConfig")
+    def test_change_report_failure_does_not_fail_worker(
+        self,
+        mock_config_cls: MagicMock,
+        mock_svc_cls: MagicMock,
+        mock_create_client: MagicMock,
+    ) -> None:
+        from halstela.alexa.event_gateway import EventGatewayError
+        from halstela.alexa.lwa import LwaTokens
+
+        mock_svc = mock_svc_cls.return_value
+        mock_svc.auto_conditioning_start.return_value = CommandResult(success=True, reason="")
+        mock_create_client.return_value.__enter__.return_value = MagicMock()
+        mock_store = MagicMock()
+        mock_store.load.return_value = LwaTokens(access_token="lwa", refresh_token="rt")
+        mock_gateway = MagicMock()
+        mock_gateway.__enter__.return_value = mock_gateway
+        mock_gateway.__exit__.return_value = False
+        mock_gateway.send_change_report.side_effect = EventGatewayError(500, "down")
+        event = {
+            "access_token": "token",
+            "vehicle_id": "VIN1",
+            "command": "auto_conditioning_start",
+        }
+        with (
+            patch(
+                "functions.command_worker.handler._create_lwa_token_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "functions.command_worker.handler._create_event_gateway_client",
+                return_value=mock_gateway,
+            ),
+        ):
+            result = lambda_handler(event, None)
+        assert result == {"success": True, "reason": ""}

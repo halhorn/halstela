@@ -23,6 +23,16 @@ PARAMS: list[dict[str, str]] = [
         "dummy": "CHANGE_ME_private_key_pem",
     },
     {"name": "/halstela/alexa-skill-id", "type": "String", "dummy": "amzn1.ask.skill.CHANGE_ME"},
+    {
+        "name": "/halstela/alexa-lwa-client-id",
+        "type": "SecureString",
+        "dummy": "CHANGE_ME_alexa_lwa_client_id",
+    },
+    {
+        "name": "/halstela/alexa-lwa-client-secret",
+        "type": "SecureString",
+        "dummy": "CHANGE_ME_alexa_lwa_client_secret",
+    },
 ]
 
 REGION = "us-west-2"
@@ -83,6 +93,11 @@ def main() -> None:
     print("  # 秘密鍵はファイルから登録する:")
     print("  aws ssm put-parameter --name /halstela/tesla-private-key \\")
     print('    --type SecureString --value "$(cat secret/private.pem)" --overwrite \\')
+    print(f"    --region {REGION} --profile {profile}")
+    print()
+    print("  # Alexa Event Gateway 用（開発者コンソール > 権限 > Alexa Skill Messaging）:")
+    print("  aws ssm put-parameter --name /halstela/alexa-lwa-client-id \\")
+    print("    --type SecureString --value 'REAL_VALUE' --overwrite \\")
     print(f"    --region {REGION} --profile {profile}")
 
 

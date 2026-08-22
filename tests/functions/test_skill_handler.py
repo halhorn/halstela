@@ -6,6 +6,7 @@ import pytest
 
 from functions.skill.handler import (
     _error_response,
+    handle_accept_grant,
     handle_discovery,
     handle_power_control,
     handle_report_state,
@@ -74,6 +75,15 @@ class TestLambdaHandler:
             lambda_handler(event, None)
         mock.assert_called_once()
 
+    def test_dispatches_accept_grant(self) -> None:
+        event = {"directive": _make_directive("Alexa.Authorization", "AcceptGrant")}
+        with patch(
+            "functions.skill.handler.handle_accept_grant", return_value={"ok": True}
+        ) as mock:
+            result = lambda_handler(event, None)
+        mock.assert_called_once()
+        assert result == {"ok": True}
+
     def test_unknown_directive_returns_error(self) -> None:
         event = {"directive": _make_directive("Unknown", "Unknown")}
         result = lambda_handler(event, None)
@@ -101,6 +111,11 @@ class TestHandleDiscovery:
         assert any(
             c["interface"] == "Alexa.TemperatureSensor" for c in endpoints[0]["capabilities"]
         )
+        power = next(
+            c for c in endpoints[0]["capabilities"] if c["interface"] == "Alexa.PowerController"
+        )
+        assert power["properties"]["proactivelyReported"] is True
+        assert power["properties"]["retrievable"] is True
 
 
 class TestHandlePowerControl:
@@ -171,6 +186,45 @@ class TestHandleReportState:
         assert len(temp_props) == 1
         assert temp_props[0]["value"]["value"] == 24.5
         assert temp_props[0]["value"]["scale"] == "CELSIUS"
+        power_props = [
+            p for p in result["context"]["properties"] if p["namespace"] == "Alexa.PowerController"
+        ]
+        assert power_props[0]["value"] == "OFF"
+
+
+class TestHandleAcceptGrant:
+    def test_exchanges_code_and_stores_tokens(self) -> None:
+        from halstela.alexa.lwa import LwaTokens
+
+        mock_lwa = MagicMock()
+        mock_lwa.__enter__.return_value = mock_lwa
+        mock_lwa.__exit__.return_value = False
+        mock_lwa.exchange_code.return_value = LwaTokens(access_token="at", refresh_token="rt")
+        mock_store = MagicMock()
+        directive = _make_directive("Alexa.Authorization", "AcceptGrant")
+        directive["payload"]["grant"] = {"type": "OAuth2.AuthorizationCode", "code": "auth-code"}
+        with (
+            patch("functions.skill.handler._create_lwa_client", return_value=mock_lwa),
+            patch("functions.skill.handler._create_lwa_token_store", return_value=mock_store),
+        ):
+            result = handle_accept_grant(directive)
+
+        assert result["event"]["header"]["name"] == "AcceptGrant.Response"
+        mock_lwa.exchange_code.assert_called_once_with("auth-code")
+        mock_store.save.assert_called_once()
+
+    def test_failure_returns_accept_grant_failed(self) -> None:
+        mock_lwa = MagicMock()
+        mock_lwa.__enter__.return_value = mock_lwa
+        mock_lwa.__exit__.return_value = False
+        mock_lwa.exchange_code.side_effect = RuntimeError("lwa down")
+        directive = _make_directive("Alexa.Authorization", "AcceptGrant")
+        directive["payload"]["grant"] = {"type": "OAuth2.AuthorizationCode", "code": "auth-code"}
+        with patch("functions.skill.handler._create_lwa_client", return_value=mock_lwa):
+            result = handle_accept_grant(directive)
+
+        assert result["event"]["header"]["name"] == "ErrorResponse"
+        assert result["event"]["payload"]["type"] == "ACCEPT_GRANT_FAILED"
 
 
 class TestErrorResponse:
