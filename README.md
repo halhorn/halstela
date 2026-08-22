@@ -155,7 +155,20 @@ aws ssm put-parameter --name /halstela/alexa-lwa-client-id \
 
 Lambda は起動時に SSM から秘密鍵を読み込み、Vehicle Command Protocol の署名に使う。`tesla-private-key` が未登録だと署名できず、車両コマンドが失敗する。
 
-### 4. `.env` の Lambda ARN
+### 4. GitHub Actions 用 OIDC（dev の Lambda CI デプロイ）
+
+`main` への push で GitHub Actions が dev アカウントへ AssumeRole できるようにする（初回のみ）。アクセスキーを GitHub Secrets に置く必要はない。
+
+```bash
+./scripts/setup_github_oidc.py dev
+# 出力された Role ARN をリポジトリ変数に登録
+gh variable set AWS_ROLE_ARN --body 'arn:aws:iam::ACCOUNT_ID:role/halstela-gha-deploy' \
+  --repo halhorn/halstela
+```
+
+信頼ポリシーは `halhorn/halstela` の `main` ブランチのみに限定される。スキル定義の反映は従来どおり手元の ASK CLI で行う。
+
+### 5. `.env` の Lambda ARN
 
 `scripts/deploy_skill.py` がスキル定義に埋め込む Lambda ARN を `.env` に設定する（`HALSTELA_DEV_LAMBDA_ARN` / `HALSTELA_PRD_LAMBDA_ARN`）。初回は `./scripts/deploy dev` の SAM デプロイ後に出力される ARN を控えて記入する。
 
