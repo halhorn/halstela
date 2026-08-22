@@ -109,9 +109,7 @@ class TestHandlePowerControl:
 
         mock_invoker = MagicMock()
         directive = _make_directive("Alexa.PowerController", "TurnOn", endpoint_id="VIN1")
-        with patch(
-            "functions.skill.handler._create_worker_invoker", return_value=mock_invoker
-        ):
+        with patch("functions.skill.handler._create_worker_invoker", return_value=mock_invoker):
             result = handle_power_control(directive)
 
         assert result["event"]["header"]["name"] == "Response"
@@ -133,9 +131,7 @@ class TestHandlePowerControl:
         event = {
             "directive": _make_directive("Alexa.PowerController", "TurnOn", endpoint_id="VIN1")
         }
-        with patch(
-            "functions.skill.handler._create_worker_invoker", return_value=mock_invoker
-        ):
+        with patch("functions.skill.handler._create_worker_invoker", return_value=mock_invoker):
             result = lambda_handler(event, None)
 
         assert result["event"]["header"]["name"] == "ErrorResponse"

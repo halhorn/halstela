@@ -38,6 +38,4 @@ class WorkerInvoker:
 
         status_code = int(response.get("StatusCode", 0))
         if status_code != 202:
-            raise WorkerInvokeError(
-                f"Unexpected StatusCode from worker invoke: {status_code}"
-            )
+            raise WorkerInvokeError(f"Unexpected StatusCode from worker invoke: {status_code}")
