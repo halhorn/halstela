@@ -47,10 +47,13 @@ Resources:
                 - ssm:GetParameter
                 - ssm:GetParameters
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/halstela/*
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CommandWorkerFunction
       Environment:
         Variables:
           SSM_PREFIX: /halstela
           TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
+          COMMAND_WORKER_ARN: !GetAtt CommandWorkerFunction.Arn
 
   SkillFunctionAlexaPermission:
     Type: AWS::Lambda::Permission
@@ -59,6 +62,29 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: alexa-connectedhome.amazon.com
       EventSourceToken: !Ref AlexaSkillId
+
+  CommandWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: halstela-command-worker
+      CodeUri: functions/command_worker/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/halstela/*
+      Environment:
+        Variables:
+          SSM_PREFIX: /halstela
+          TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
 
   TokenProxyFunction:
     Type: AWS::Serverless::Function

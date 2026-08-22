@@ -54,7 +54,7 @@ class VehicleService:
             driver_temp_setting=float(climate.get("driver_temp_setting", 0.0)),
         )
 
-    def start_air_conditioning(self, vehicle_id: str) -> CommandResult:
+    def auto_conditioning_start(self, vehicle_id: str) -> CommandResult:
         self.ensure_awake(vehicle_id)
         result = self._client.send_command(vehicle_id, "auto_conditioning_start")
         return CommandResult(
@@ -79,7 +79,7 @@ class VehicleService:
         if vehicle_data.get("state") == "online":
             return
 
-        logger.info("Vehicle %s is not online, sending wake_up", vehicle_id)
+        logger.info(f"Vehicle {vehicle_id} is not online, sending wake_up")
         self._client.wake_up(vehicle_id)
 
         deadline = time.monotonic() + timeout
@@ -90,7 +90,7 @@ class VehicleService:
             except TeslaAPIError:
                 continue
             if vehicle_data.get("state") == "online":
-                logger.info("Vehicle %s is now online", vehicle_id)
+                logger.info(f"Vehicle {vehicle_id} is now online")
                 return
 
         raise TimeoutError(f"Vehicle {vehicle_id} did not come online within {timeout}s")

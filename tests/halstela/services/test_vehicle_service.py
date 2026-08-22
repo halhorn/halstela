@@ -100,12 +100,12 @@ class TestGetClimateState:
         mock_client.get_vehicle_data.assert_called_once_with("VIN1", endpoints=["climate_state"])
 
 
-class TestStartAirConditioning:
+class TestAutoConditioningStart:
     def test_success(self, vehicle_service: VehicleService, mock_client: MagicMock) -> None:
         mock_client.get_vehicle.return_value = {"state": "online"}
         mock_client.send_command.return_value = {"result": True, "reason": ""}
 
-        result = vehicle_service.start_air_conditioning("VIN1")
+        result = vehicle_service.auto_conditioning_start("VIN1")
 
         assert result == CommandResult(success=True, reason="")
         mock_client.send_command.assert_called_once_with("VIN1", "auto_conditioning_start")
