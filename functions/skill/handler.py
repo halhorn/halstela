@@ -24,7 +24,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     namespace = header.get("namespace", "")
     name = header.get("name", "")
 
-    logger.info("Directive: %s.%s", namespace, name)
+    logger.info(f"Directive: {namespace}.{name}")
 
     try:
         if namespace == "Alexa.Discovery" and name == "Discover":
@@ -36,7 +36,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         return _error_response(directive, "INVALID_DIRECTIVE", f"Unsupported: {namespace}.{name}")
     except Exception:
-        logger.exception("Error handling %s.%s", namespace, name)
+        logger.exception(f"Error handling {namespace}.{name}")
         return _error_response(directive, "INTERNAL_ERROR", "Internal error")
 
 

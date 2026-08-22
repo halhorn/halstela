@@ -33,9 +33,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         }
     except httpx.HTTPStatusError as exc:
         logger.error(
-            "Tesla token endpoint error: %d %s",
-            exc.response.status_code,
-            exc.response.text,
+            f"Tesla token endpoint error: {exc.response.status_code} {exc.response.text}"
         )
         return {
             "statusCode": exc.response.status_code,

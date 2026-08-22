@@ -10,35 +10,29 @@ from typing import Any
 
 from halstela.clients.tesla_fleet_client import create_fleet_client
 from halstela.config import TeslaConfig
+from halstela.models.command_result import CommandResult
 from halstela.models.worker_command import WorkerCommand
 from halstela.services.vehicle_service import VehicleService
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# コマンド名 → VehicleService のメソッド名
-_COMMAND_HANDLERS: dict[str, str] = {
-    "auto_conditioning_start": "start_air_conditioning",
-}
-
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    command = WorkerCommand.from_payload(event)
-    # access_token を含むためペイロード全体はログしない
-    logger.info(
-        "Worker command received: command=%s vehicle_id=%s",
-        command.command,
-        command.vehicle_id,
-    )
+    try:
+        command = WorkerCommand.from_payload(event)
+        # access_token を含むためペイロード全体はログしない
+        logger.info(
+            f"Worker command received: command={command.command} vehicle_id={command.vehicle_id}"
+        )
 
-    method_name = _COMMAND_HANDLERS.get(command.command)
-    if method_name is None:
-        raise ValueError(f"Unsupported worker command: {command.command}")
-
-    config = TeslaConfig.from_env()
-    with create_fleet_client(command.access_token, config) as client:
-        service = VehicleService(client)
-        result = getattr(service, method_name)(command.vehicle_id)
+        config = TeslaConfig.from_env()
+        with create_fleet_client(command.access_token, config) as client:
+            service = VehicleService(client)
+            result = _execute(service, command)
+    except (KeyError, ValueError):
+        logger.exception("Invalid worker command")
+        raise
 
     if not result.success:
         raise RuntimeError(
@@ -47,8 +41,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
 
     logger.info(
-        "Worker command succeeded: command=%s vehicle_id=%s",
-        command.command,
-        command.vehicle_id,
+        f"Worker command succeeded: command={command.command} vehicle_id={command.vehicle_id}"
     )
     return {"success": True, "reason": result.reason}
+
+
+def _execute(service: VehicleService, command: WorkerCommand) -> CommandResult:
+    if command.command == "auto_conditioning_start":
+        return service.start_air_conditioning(command.vehicle_id)
+    raise ValueError(f"Unsupported worker command: {command.command}")

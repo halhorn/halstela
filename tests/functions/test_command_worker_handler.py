@@ -56,7 +56,17 @@ class TestCommandWorkerHandler:
         with pytest.raises(RuntimeError, match="Worker command failed"):
             lambda_handler(event, None)
 
-    def test_unknown_command_raises(self) -> None:
+    @patch("functions.command_worker.handler.create_fleet_client")
+    @patch("functions.command_worker.handler.VehicleService")
+    @patch("functions.command_worker.handler.TeslaConfig")
+    def test_unknown_command_raises(
+        self,
+        mock_config_cls: MagicMock,
+        mock_svc_cls: MagicMock,
+        mock_create_client: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        mock_create_client.return_value.__enter__.return_value = MagicMock()
         event = {
             "access_token": "token",
             "vehicle_id": "VIN1",
@@ -64,7 +74,10 @@ class TestCommandWorkerHandler:
         }
         with pytest.raises(ValueError, match="Unsupported worker command"):
             lambda_handler(event, None)
+        mock_svc_cls.return_value.start_air_conditioning.assert_not_called()
+        assert "Invalid worker command" in caplog.text
 
-    def test_invalid_payload_raises(self) -> None:
+    def test_invalid_payload_raises(self, caplog: pytest.LogCaptureFixture) -> None:
         with pytest.raises(ValueError, match="missing required fields"):
             lambda_handler({"access_token": "token"}, None)
+        assert "Invalid worker command" in caplog.text
