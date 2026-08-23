@@ -5,8 +5,8 @@ import os
 import uuid
 from typing import Any
 
-from halstela.alexa.lwa import LwaClient, SsmLwaTokenStore
-from halstela.alexa.properties import report_state_properties
+from halstela.alexa.event_gateway import EventGatewayClient
+from halstela.alexa.properties import properties_as_dicts, report_state_properties
 from halstela.clients.tesla_fleet_client import TeslaFleetClient
 from halstela.clients.worker_invoker import WorkerInvoker
 from halstela.config import TeslaConfig
@@ -116,9 +116,8 @@ def _create_worker_invoker() -> WorkerInvoker:
 def handle_accept_grant(directive: dict[str, Any]) -> dict[str, Any]:
     code = directive["payload"]["grant"]["code"]
     try:
-        with _create_lwa_client() as lwa:
-            tokens = lwa.exchange_code(code)
-        _create_lwa_token_store().save(tokens)
+        with _create_event_gateway_client() as gateway:
+            gateway.accept_grant(code)
     except Exception:
         logger.exception("AcceptGrant failed")
         return {
@@ -149,12 +148,8 @@ def handle_accept_grant(directive: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _create_lwa_client() -> LwaClient:
-    return LwaClient.from_env()
-
-
-def _create_lwa_token_store() -> SsmLwaTokenStore:
-    return SsmLwaTokenStore.from_env()
+def _create_event_gateway_client() -> EventGatewayClient:
+    return EventGatewayClient.from_env()
 
 
 # ── ReportState ──
@@ -184,7 +179,7 @@ def handle_report_state(directive: dict[str, Any]) -> dict[str, Any]:
             "payload": {},
         },
         "context": {
-            "properties": report_state_properties(climate),
+            "properties": properties_as_dicts(report_state_properties(climate)),
         },
     }
 

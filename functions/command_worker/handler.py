@@ -9,8 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from halstela.alexa.event_gateway import EventGatewayClient, EventGatewayError
-from halstela.alexa.lwa import LwaClient, LwaTokens, SsmLwaTokenStore
+from halstela.alexa.event_gateway import EventGatewayClient
 from halstela.alexa.properties import (
     climate_context_properties,
     connectivity_ok_property,
@@ -64,11 +63,6 @@ def _execute(service: VehicleService, command: WorkerCommand) -> CommandResult:
 
 def _send_change_report(service: VehicleService, command: WorkerCommand) -> None:
     try:
-        tokens = _create_lwa_token_store().load()
-        if tokens is None:
-            logger.warning("ChangeReport skipped: LWA tokens are not stored")
-            return
-
         context = [connectivity_ok_property()]
         try:
             climate = service.get_climate_state(command.vehicle_id)
@@ -76,39 +70,15 @@ def _send_change_report(service: VehicleService, command: WorkerCommand) -> None
         except Exception:
             logger.exception("Failed to fetch climate state for ChangeReport")
 
-        changed = [power_state_property("ON")]
-        _post_change_report(tokens, command.vehicle_id, changed, context)
+        with _create_event_gateway_client() as gateway:
+            gateway.send_change_report(
+                command.vehicle_id,
+                [power_state_property("ON")],
+                context,
+            )
         logger.info(f"ChangeReport sent: vehicle_id={command.vehicle_id}")
     except Exception:
         logger.exception("ChangeReport failed")
-
-
-def _post_change_report(
-    tokens: LwaTokens,
-    endpoint_id: str,
-    changed: list[dict[str, Any]],
-    context: list[dict[str, Any]],
-) -> None:
-    store = _create_lwa_token_store()
-    with _create_event_gateway_client() as gateway:
-        try:
-            gateway.send_change_report(tokens.access_token, endpoint_id, changed, context)
-            return
-        except EventGatewayError as exc:
-            if exc.status_code != 401:
-                raise
-        with _create_lwa_client() as lwa:
-            tokens = lwa.refresh(tokens.refresh_token)
-        store.save(tokens)
-        gateway.send_change_report(tokens.access_token, endpoint_id, changed, context)
-
-
-def _create_lwa_token_store() -> SsmLwaTokenStore:
-    return SsmLwaTokenStore.from_env()
-
-
-def _create_lwa_client() -> LwaClient:
-    return LwaClient.from_env()
 
 
 def _create_event_gateway_client() -> EventGatewayClient:

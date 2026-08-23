@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
@@ -23,6 +23,14 @@ class LwaTokens:
 
 class LwaError(Exception):
     """LWA トークンエンドポイントのエラー。"""
+
+
+class LwaTokenStore(Protocol):
+    """Event Gateway 用 LWA トークンの永続化。"""
+
+    def save(self, tokens: LwaTokens) -> None: ...
+
+    def load(self) -> LwaTokens | None: ...
 
 
 class LwaClient:

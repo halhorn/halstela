@@ -194,33 +194,31 @@ class TestHandleReportState:
 
 class TestHandleAcceptGrant:
     def test_exchanges_code_and_stores_tokens(self) -> None:
-        from halstela.alexa.lwa import LwaTokens
-
-        mock_lwa = MagicMock()
-        mock_lwa.__enter__.return_value = mock_lwa
-        mock_lwa.__exit__.return_value = False
-        mock_lwa.exchange_code.return_value = LwaTokens(access_token="at", refresh_token="rt")
-        mock_store = MagicMock()
+        mock_gateway = MagicMock()
+        mock_gateway.__enter__.return_value = mock_gateway
+        mock_gateway.__exit__.return_value = False
         directive = _make_directive("Alexa.Authorization", "AcceptGrant")
         directive["payload"]["grant"] = {"type": "OAuth2.AuthorizationCode", "code": "auth-code"}
-        with (
-            patch("functions.skill.handler._create_lwa_client", return_value=mock_lwa),
-            patch("functions.skill.handler._create_lwa_token_store", return_value=mock_store),
+        with patch(
+            "functions.skill.handler._create_event_gateway_client",
+            return_value=mock_gateway,
         ):
             result = handle_accept_grant(directive)
 
         assert result["event"]["header"]["name"] == "AcceptGrant.Response"
-        mock_lwa.exchange_code.assert_called_once_with("auth-code")
-        mock_store.save.assert_called_once()
+        mock_gateway.accept_grant.assert_called_once_with("auth-code")
 
     def test_failure_returns_accept_grant_failed(self) -> None:
-        mock_lwa = MagicMock()
-        mock_lwa.__enter__.return_value = mock_lwa
-        mock_lwa.__exit__.return_value = False
-        mock_lwa.exchange_code.side_effect = RuntimeError("lwa down")
+        mock_gateway = MagicMock()
+        mock_gateway.__enter__.return_value = mock_gateway
+        mock_gateway.__exit__.return_value = False
+        mock_gateway.accept_grant.side_effect = RuntimeError("lwa down")
         directive = _make_directive("Alexa.Authorization", "AcceptGrant")
         directive["payload"]["grant"] = {"type": "OAuth2.AuthorizationCode", "code": "auth-code"}
-        with patch("functions.skill.handler._create_lwa_client", return_value=mock_lwa):
+        with patch(
+            "functions.skill.handler._create_event_gateway_client",
+            return_value=mock_gateway,
+        ):
             result = handle_accept_grant(directive)
 
         assert result["event"]["header"]["name"] == "ErrorResponse"

@@ -1,55 +1,80 @@
-"""Alexa Smart Home の property オブジェクト組み立て。"""
+"""Alexa Smart Home の property。"""
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from halstela.models.climate_state import ClimateState
 
 
+@dataclass(frozen=True)
+class AlexaProperty:
+    """Alexa イベント / StateReport に載せる 1 プロパティ。"""
+
+    namespace: str
+    name: str
+    value: str | dict[str, Any]
+    time_of_sample: str
+    uncertainty_in_milliseconds: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "namespace": self.namespace,
+            "name": self.name,
+            "value": self.value,
+            "timeOfSample": self.time_of_sample,
+            "uncertaintyInMilliseconds": self.uncertainty_in_milliseconds,
+        }
+
+
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def power_state_property(state: str, sampled_at: str | None = None) -> dict[str, Any]:
-    return {
-        "namespace": "Alexa.PowerController",
-        "name": "powerState",
-        "value": state,
-        "timeOfSample": sampled_at or iso_now(),
-        "uncertaintyInMilliseconds": 0,
-    }
+def properties_as_dicts(properties: list[AlexaProperty]) -> list[dict[str, Any]]:
+    return [prop.to_dict() for prop in properties]
 
 
-def temperature_property(celsius: float, sampled_at: str | None = None) -> dict[str, Any]:
-    return {
-        "namespace": "Alexa.TemperatureSensor",
-        "name": "temperature",
-        "value": {"value": celsius, "scale": "CELSIUS"},
-        "timeOfSample": sampled_at or iso_now(),
-        "uncertaintyInMilliseconds": 60000,
-    }
+def power_state_property(state: str, sampled_at: str | None = None) -> AlexaProperty:
+    return AlexaProperty(
+        namespace="Alexa.PowerController",
+        name="powerState",
+        value=state,
+        time_of_sample=sampled_at or iso_now(),
+        uncertainty_in_milliseconds=0,
+    )
 
 
-def connectivity_ok_property(sampled_at: str | None = None) -> dict[str, Any]:
-    return {
-        "namespace": "Alexa.EndpointHealth",
-        "name": "connectivity",
-        "value": {"value": "OK"},
-        "timeOfSample": sampled_at or iso_now(),
-        "uncertaintyInMilliseconds": 0,
-    }
+def temperature_property(celsius: float, sampled_at: str | None = None) -> AlexaProperty:
+    return AlexaProperty(
+        namespace="Alexa.TemperatureSensor",
+        name="temperature",
+        value={"value": celsius, "scale": "CELSIUS"},
+        time_of_sample=sampled_at or iso_now(),
+        uncertainty_in_milliseconds=60000,
+    )
 
 
-def climate_context_properties(climate: ClimateState) -> list[dict[str, Any]]:
+def connectivity_ok_property(sampled_at: str | None = None) -> AlexaProperty:
+    return AlexaProperty(
+        namespace="Alexa.EndpointHealth",
+        name="connectivity",
+        value={"value": "OK"},
+        time_of_sample=sampled_at or iso_now(),
+        uncertainty_in_milliseconds=0,
+    )
+
+
+def climate_context_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
-    properties: list[dict[str, Any]] = []
+    properties: list[AlexaProperty] = []
     if climate.inside_temp is not None:
         properties.append(temperature_property(climate.inside_temp, now))
     properties.append(connectivity_ok_property(now))
     return properties
 
 
-def report_state_properties(climate: ClimateState) -> list[dict[str, Any]]:
+def report_state_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
     properties = [power_state_property("ON" if climate.is_climate_on else "OFF", now)]
     properties.extend(climate_context_properties(climate))
