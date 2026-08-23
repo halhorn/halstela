@@ -118,8 +118,8 @@ def handle_accept_grant(directive: dict[str, Any]) -> dict[str, Any]:
     try:
         with _create_event_gateway_client() as gateway:
             gateway.accept_grant(code=code)
-    except Exception:
-        logger.exception("AcceptGrant failed")
+    except Exception as exc:
+        logger.exception(f"AcceptGrant failed: {exc!r}")
         return {
             "event": {
                 "header": {

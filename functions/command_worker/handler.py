@@ -74,8 +74,8 @@ def _send_change_report(service: VehicleService, command: WorkerCommand) -> None
                 ],
             )
         logger.info(f"ChangeReport sent: vehicle_id={command.vehicle_id}")
-    except Exception:
-        logger.exception("ChangeReport failed")
+    except Exception as exc:
+        logger.exception(f"ChangeReport failed: {exc!r}")
 
 
 def _create_event_gateway_client() -> EventGatewayClient:
