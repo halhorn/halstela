@@ -117,7 +117,7 @@ def handle_accept_grant(directive: dict[str, Any]) -> dict[str, Any]:
     code = directive["payload"]["grant"]["code"]
     try:
         with _create_event_gateway_client() as gateway:
-            gateway.accept_grant(code)
+            gateway.accept_grant(code=code)
     except Exception:
         logger.exception("AcceptGrant failed")
         return {
@@ -179,7 +179,7 @@ def handle_report_state(directive: dict[str, Any]) -> dict[str, Any]:
             "payload": {},
         },
         "context": {
-            "properties": properties_as_dicts(report_state_properties(climate)),
+            "properties": properties_as_dicts(properties=report_state_properties(climate=climate)),
         },
     }
 

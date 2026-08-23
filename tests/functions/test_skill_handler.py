@@ -206,7 +206,7 @@ class TestHandleAcceptGrant:
             result = handle_accept_grant(directive)
 
         assert result["event"]["header"]["name"] == "AcceptGrant.Response"
-        mock_gateway.accept_grant.assert_called_once_with("auth-code")
+        mock_gateway.accept_grant.assert_called_once_with(code="auth-code")
 
     def test_failure_returns_accept_grant_failed(self) -> None:
         mock_gateway = MagicMock()

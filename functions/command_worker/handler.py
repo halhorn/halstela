@@ -11,6 +11,7 @@ from typing import Any
 
 from halstela.alexa.event_gateway import EventGatewayClient
 from halstela.alexa.properties import (
+    AlexaProperty,
     climate_context_properties,
     connectivity_ok_property,
     power_state_property,
@@ -63,22 +64,25 @@ def _execute(service: VehicleService, command: WorkerCommand) -> CommandResult:
 
 def _send_change_report(service: VehicleService, command: WorkerCommand) -> None:
     try:
-        context = [connectivity_ok_property()]
-        try:
-            climate = service.get_climate_state(command.vehicle_id)
-            context = climate_context_properties(climate)
-        except Exception:
-            logger.exception("Failed to fetch climate state for ChangeReport")
-
         with _create_event_gateway_client() as gateway:
             gateway.send_change_report(
-                command.vehicle_id,
-                [power_state_property("ON")],
-                context,
+                endpoint_id=command.vehicle_id,
+                changed=[power_state_property(state="ON")],
+                context=_change_report_context(service=service, vehicle_id=command.vehicle_id),
             )
         logger.info(f"ChangeReport sent: vehicle_id={command.vehicle_id}")
     except Exception:
         logger.exception("ChangeReport failed")
+
+
+def _change_report_context(service: VehicleService, vehicle_id: str) -> list[AlexaProperty]:
+    """付随状態（温度・connectivity）。気候状態が取れないときは connectivity のみ。"""
+    try:
+        climate = service.get_climate_state(vehicle_id)
+    except Exception:
+        logger.exception("Failed to fetch climate state for ChangeReport")
+        return [connectivity_ok_property()]
+    return climate_context_properties(climate=climate)
 
 
 def _create_event_gateway_client() -> EventGatewayClient:

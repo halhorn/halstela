@@ -22,7 +22,7 @@ def _client(
         store.load.return_value = LwaTokens(access_token="lwa-token", refresh_token="rt")
     if lwa is None:
         lwa = MagicMock()
-    return EventGatewayClient(url, token_store=store, lwa_client=lwa, http_client=http)
+    return EventGatewayClient(gateway_url=url, token_store=store, lwa_client=lwa, http_client=http)
 
 
 class TestEventGatewayClient:
@@ -35,10 +35,10 @@ class TestEventGatewayClient:
             captured["body"] = json.loads(request.content)
             return httpx.Response(202)
 
-        changed = [power_state_property("ON", "2026-01-01T00:00:00+00:00")]
-        context = [connectivity_ok_property("2026-01-01T00:00:00+00:00")]
+        changed = [power_state_property(state="ON", sampled_at="2026-01-01T00:00:00+00:00")]
+        context = [connectivity_ok_property(sampled_at="2026-01-01T00:00:00+00:00")]
         _client(httpx.Client(transport=httpx.MockTransport(handler))).send_change_report(
-            "VIN1", changed, context
+            endpoint_id="VIN1", changed=changed, context=context
         )
 
         assert captured["url"] == "https://api.fe.amazonalexa.com/v3/events"
@@ -54,7 +54,9 @@ class TestEventGatewayClient:
     def test_non_202_raises(self) -> None:
         http = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(500, text="no")))
         with pytest.raises(EventGatewayError) as exc:
-            _client(http, url="https://example.com/v3/events").send_change_report("VIN1", [], [])
+            _client(http, url="https://example.com/v3/events").send_change_report(
+                endpoint_id="VIN1", changed=[], context=[]
+            )
         assert exc.value.status_code == 500
 
     def test_missing_tokens_raises(self) -> None:
@@ -62,7 +64,9 @@ class TestEventGatewayClient:
         store.load.return_value = None
         http = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(202)))
         with pytest.raises(EventGatewayError, match="LWA tokens are not stored"):
-            _client(http, store=store).send_change_report("VIN1", [], [])
+            _client(http, store=store).send_change_report(
+                endpoint_id="VIN1", changed=[], context=[]
+            )
 
     def test_401_refreshes_token_and_retries(self) -> None:
         statuses = iter([401, 202])
@@ -78,9 +82,9 @@ class TestEventGatewayClient:
         lwa.refresh.return_value = LwaTokens(access_token="new", refresh_token="rt2")
         _client(
             httpx.Client(transport=httpx.MockTransport(handler)), store=store, lwa=lwa
-        ).send_change_report("VIN1", [], [])
+        ).send_change_report(endpoint_id="VIN1", changed=[], context=[])
 
-        lwa.refresh.assert_called_once_with("rt")
+        lwa.refresh.assert_called_once_with(refresh_token="rt")
         store.save.assert_called_once_with(LwaTokens(access_token="new", refresh_token="rt2"))
         assert tokens_used == ["Bearer old", "Bearer new"]
 
@@ -89,7 +93,7 @@ class TestEventGatewayClient:
         lwa = MagicMock()
         lwa.exchange_code.return_value = LwaTokens(access_token="at", refresh_token="rt")
         http = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(202)))
-        _client(http, store=store, lwa=lwa).accept_grant("auth-code")
+        _client(http, store=store, lwa=lwa).accept_grant(code="auth-code")
 
         lwa.exchange_code.assert_called_once_with("auth-code")
         store.save.assert_called_once_with(LwaTokens(access_token="at", refresh_token="rt"))

@@ -56,7 +56,7 @@ class EventGatewayClient:
     @classmethod
     def from_env(cls) -> EventGatewayClient:
         return cls(
-            os.environ.get("ALEXA_EVENT_GATEWAY_URL", DEFAULT_GATEWAY_URL),
+            gateway_url=os.environ.get("ALEXA_EVENT_GATEWAY_URL", DEFAULT_GATEWAY_URL),
             token_store=SsmLwaTokenStore.from_env(),
             lwa_client=LwaClient.from_env(),
         )
@@ -75,14 +75,26 @@ class EventGatewayClient:
         if tokens is None:
             raise EventGatewayError(0, "LWA tokens are not stored")
         try:
-            self._post(tokens.access_token, endpoint_id, changed, context, cause)
+            self._post(
+                access_token=tokens.access_token,
+                endpoint_id=endpoint_id,
+                changed=changed,
+                context=context,
+                cause=cause,
+            )
             return
         except EventGatewayError as exc:
             if exc.status_code != 401:
                 raise
-        tokens = self._lwa.refresh(tokens.refresh_token)
+        tokens = self._lwa.refresh(refresh_token=tokens.refresh_token)
         self._store.save(tokens)
-        self._post(tokens.access_token, endpoint_id, changed, context, cause)
+        self._post(
+            access_token=tokens.access_token,
+            endpoint_id=endpoint_id,
+            changed=changed,
+            context=context,
+            cause=cause,
+        )
 
     def _post(
         self,
@@ -107,11 +119,11 @@ class EventGatewayClient:
                 "payload": {
                     "change": {
                         "cause": {"type": cause},
-                        "properties": properties_as_dicts(changed),
+                        "properties": properties_as_dicts(properties=changed),
                     }
                 },
             },
-            "context": {"properties": properties_as_dicts(context)},
+            "context": {"properties": properties_as_dicts(properties=context)},
         }
         try:
             response = self._http.post(

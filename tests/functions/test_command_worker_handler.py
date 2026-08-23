@@ -115,10 +115,11 @@ class TestCommandWorkerHandler:
             lambda_handler(event, None)
 
         mock_gateway.send_change_report.assert_called_once()
-        args = mock_gateway.send_change_report.call_args.args
-        assert args[0] == "VIN1"
-        assert args[1][0].name == "powerState"
-        assert args[1][0].value == "ON"
+        kwargs = mock_gateway.send_change_report.call_args.kwargs
+        assert kwargs["endpoint_id"] == "VIN1"
+        assert kwargs["changed"][0].name == "powerState"
+        assert kwargs["changed"][0].value == "ON"
+        assert [p.name for p in kwargs["context"]] == ["temperature", "connectivity"]
 
     @patch("functions.command_worker.handler.create_fleet_client")
     @patch("functions.command_worker.handler.VehicleService")
@@ -149,3 +150,35 @@ class TestCommandWorkerHandler:
         ):
             result = lambda_handler(event, None)
         assert result == {"success": True, "reason": ""}
+
+    @patch("functions.command_worker.handler.create_fleet_client")
+    @patch("functions.command_worker.handler.VehicleService")
+    @patch("functions.command_worker.handler.TeslaConfig")
+    def test_climate_fetch_failure_still_reports_power_on(
+        self,
+        mock_config_cls: MagicMock,
+        mock_svc_cls: MagicMock,
+        mock_create_client: MagicMock,
+    ) -> None:
+        mock_svc = mock_svc_cls.return_value
+        mock_svc.auto_conditioning_start.return_value = CommandResult(success=True, reason="")
+        mock_svc.get_climate_state.side_effect = RuntimeError("vehicle asleep")
+        mock_create_client.return_value.__enter__.return_value = MagicMock()
+        mock_gateway = MagicMock()
+        mock_gateway.__enter__.return_value = mock_gateway
+        mock_gateway.__exit__.return_value = False
+        event = {
+            "access_token": "token",
+            "vehicle_id": "VIN1",
+            "command": "auto_conditioning_start",
+        }
+        with patch(
+            "functions.command_worker.handler._create_event_gateway_client",
+            return_value=mock_gateway,
+        ):
+            lambda_handler(event, None)
+
+        kwargs = mock_gateway.send_change_report.call_args.kwargs
+        assert kwargs["changed"][0].name == "powerState"
+        assert kwargs["changed"][0].value == "ON"
+        assert [p.name for p in kwargs["context"]] == ["connectivity"]

@@ -69,13 +69,15 @@ def climate_context_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
     properties: list[AlexaProperty] = []
     if climate.inside_temp is not None:
-        properties.append(temperature_property(climate.inside_temp, now))
-    properties.append(connectivity_ok_property(now))
+        properties.append(temperature_property(celsius=climate.inside_temp, sampled_at=now))
+    properties.append(connectivity_ok_property(sampled_at=now))
     return properties
 
 
 def report_state_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
-    properties = [power_state_property("ON" if climate.is_climate_on else "OFF", now)]
-    properties.extend(climate_context_properties(climate))
+    properties = [
+        power_state_property(state="ON" if climate.is_climate_on else "OFF", sampled_at=now)
+    ]
+    properties.extend(climate_context_properties(climate=climate))
     return properties

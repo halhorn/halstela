@@ -29,7 +29,7 @@ class TestAlexaProperty:
         }
 
     def test_power_state_factory(self) -> None:
-        prop = power_state_property("OFF", "2026-01-01T00:00:00+00:00")
+        prop = power_state_property(state="OFF", sampled_at="2026-01-01T00:00:00+00:00")
         assert prop.namespace == "Alexa.PowerController"
         assert prop.name == "powerState"
         assert prop.value == "OFF"
@@ -38,7 +38,7 @@ class TestAlexaProperty:
         climate = ClimateState(
             inside_temp=21.0, outside_temp=5.0, is_climate_on=True, driver_temp_setting=22.0
         )
-        props = report_state_properties(climate)
+        props = report_state_properties(climate=climate)
         assert [p.name for p in props] == ["powerState", "temperature", "connectivity"]
         assert props[0].value == "ON"
         assert props[1].value == {"value": 21.0, "scale": "CELSIUS"}
@@ -47,9 +47,9 @@ class TestAlexaProperty:
         climate = ClimateState(
             inside_temp=None, outside_temp=None, is_climate_on=False, driver_temp_setting=22.0
         )
-        props = climate_context_properties(climate)
+        props = climate_context_properties(climate=climate)
         assert [p.name for p in props] == ["connectivity"]
 
     def test_properties_as_dicts(self) -> None:
-        prop = temperature_property(18.0, "2026-01-01T00:00:00+00:00")
-        assert properties_as_dicts([prop]) == [prop.to_dict()]
+        prop = temperature_property(celsius=18.0, sampled_at="2026-01-01T00:00:00+00:00")
+        assert properties_as_dicts(properties=[prop]) == [prop.to_dict()]
