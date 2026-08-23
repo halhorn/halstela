@@ -79,6 +79,12 @@ def deploy_policy(account_id: str, region: str) -> dict[str, Any]:
                 "Resource": "*",
             },
             {
+                "Sid": "SamTransform",
+                "Effect": "Allow",
+                "Action": "cloudformation:CreateChangeSet",
+                "Resource": f"arn:aws:cloudformation:{region}:aws:transform/Serverless-2016-10-31",
+            },
+            {
                 "Sid": "S3SamArtifacts",
                 "Effect": "Allow",
                 "Action": "s3:*",
