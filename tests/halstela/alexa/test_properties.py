@@ -5,6 +5,7 @@ import pytest
 from halstela.alexa.properties import (
     AlexaProperty,
     climate_context_property,
+    power_state_from_climate,
     power_state_property,
     report_state_properties,
     temperature_property,
@@ -28,6 +29,16 @@ class TestAlexaProperty:
             "timeOfSample": "2026-01-01T00:00:00+00:00",
             "uncertaintyInMilliseconds": 0,
         }
+
+    def test_power_state_from_climate(self) -> None:
+        on = ClimateState(
+            inside_temp=21.0, outside_temp=5.0, is_climate_on=True, driver_temp_setting=22.0
+        )
+        off = ClimateState(
+            inside_temp=21.0, outside_temp=5.0, is_climate_on=False, driver_temp_setting=22.0
+        )
+        assert power_state_from_climate(climate=on).value == "ON"
+        assert power_state_from_climate(climate=off).value == "OFF"
 
     def test_power_state_factory(self) -> None:
         prop = power_state_property(state="OFF", sampled_at="2026-01-01T00:00:00+00:00")
