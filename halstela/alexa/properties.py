@@ -17,7 +17,7 @@ class AlexaProperty:
     time_of_sample: str
     uncertainty_in_milliseconds: int = 0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_serializable(self) -> dict[str, Any]:
         return {
             "namespace": self.namespace,
             "name": self.name,
@@ -29,10 +29,6 @@ class AlexaProperty:
 
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def properties_as_dicts(properties: list[AlexaProperty]) -> list[dict[str, Any]]:
-    return [prop.to_dict() for prop in properties]
 
 
 def power_state_property(state: str, sampled_at: str | None = None) -> AlexaProperty:
@@ -65,19 +61,19 @@ def connectivity_ok_property(sampled_at: str | None = None) -> AlexaProperty:
     )
 
 
-def climate_context_properties(climate: ClimateState) -> list[AlexaProperty]:
-    now = iso_now()
-    properties: list[AlexaProperty] = []
-    if climate.inside_temp is not None:
-        properties.append(temperature_property(celsius=climate.inside_temp, sampled_at=now))
-    properties.append(connectivity_ok_property(sampled_at=now))
-    return properties
+def climate_context_property(
+    climate: ClimateState, sampled_at: str | None = None
+) -> AlexaProperty | None:
+    if climate.inside_temp is None:
+        return None
+    return temperature_property(celsius=climate.inside_temp, sampled_at=sampled_at)
 
 
 def report_state_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
-    properties = [
-        power_state_property(state="ON" if climate.is_climate_on else "OFF", sampled_at=now)
-    ]
-    properties.extend(climate_context_properties(climate=climate))
-    return properties
+    power = power_state_property(state="ON" if climate.is_climate_on else "OFF", sampled_at=now)
+    climate_prop = climate_context_property(climate=climate, sampled_at=now)
+    connectivity = connectivity_ok_property(sampled_at=now)
+    if climate_prop is None:
+        return [power, connectivity]
+    return [power, climate_prop, connectivity]

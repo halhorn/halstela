@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from halstela.alexa.lwa import LwaClient, LwaTokenStore, SsmLwaTokenStore
-from halstela.alexa.properties import AlexaProperty, properties_as_dicts
+from halstela.alexa.properties import AlexaProperty
 
 DEFAULT_GATEWAY_URL = "https://api.fe.amazonalexa.com/v3/events"
 
@@ -119,11 +119,11 @@ class EventGatewayClient:
                 "payload": {
                     "change": {
                         "cause": {"type": cause},
-                        "properties": properties_as_dicts(properties=changed),
+                        "properties": [prop.to_serializable() for prop in changed],
                     }
                 },
             },
-            "context": {"properties": properties_as_dicts(properties=context)},
+            "context": {"properties": [prop.to_serializable() for prop in context]},
         }
         try:
             response = self._http.post(

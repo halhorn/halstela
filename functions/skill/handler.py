@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from halstela.alexa.event_gateway import EventGatewayClient
-from halstela.alexa.properties import properties_as_dicts, report_state_properties
+from halstela.alexa.properties import report_state_properties
 from halstela.clients.tesla_fleet_client import TeslaFleetClient
 from halstela.clients.worker_invoker import WorkerInvoker
 from halstela.config import TeslaConfig
@@ -179,7 +179,9 @@ def handle_report_state(directive: dict[str, Any]) -> dict[str, Any]:
             "payload": {},
         },
         "context": {
-            "properties": properties_as_dicts(properties=report_state_properties(climate=climate)),
+            "properties": [
+                prop.to_serializable() for prop in report_state_properties(climate=climate)
+            ],
         },
     }
 

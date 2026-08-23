@@ -2,9 +2,8 @@
 
 from halstela.alexa.properties import (
     AlexaProperty,
-    climate_context_properties,
+    climate_context_property,
     power_state_property,
-    properties_as_dicts,
     report_state_properties,
     temperature_property,
 )
@@ -12,7 +11,7 @@ from halstela.models.climate_state import ClimateState
 
 
 class TestAlexaProperty:
-    def test_to_dict(self) -> None:
+    def test_to_serializable(self) -> None:
         prop = AlexaProperty(
             namespace="Alexa.PowerController",
             name="powerState",
@@ -20,7 +19,7 @@ class TestAlexaProperty:
             time_of_sample="2026-01-01T00:00:00+00:00",
             uncertainty_in_milliseconds=0,
         )
-        assert prop.to_dict() == {
+        assert prop.to_serializable() == {
             "namespace": "Alexa.PowerController",
             "name": "powerState",
             "value": "ON",
@@ -34,7 +33,7 @@ class TestAlexaProperty:
         assert prop.name == "powerState"
         assert prop.value == "OFF"
 
-    def test_report_state_includes_power_and_temperature(self) -> None:
+    def test_report_state_includes_power_temperature_and_connectivity(self) -> None:
         climate = ClimateState(
             inside_temp=21.0, outside_temp=5.0, is_climate_on=True, driver_temp_setting=22.0
         )
@@ -43,13 +42,15 @@ class TestAlexaProperty:
         assert props[0].value == "ON"
         assert props[1].value == {"value": 21.0, "scale": "CELSIUS"}
 
-    def test_climate_context_skips_missing_temperature(self) -> None:
+    def test_climate_context_is_none_without_temperature(self) -> None:
         climate = ClimateState(
             inside_temp=None, outside_temp=None, is_climate_on=False, driver_temp_setting=22.0
         )
-        props = climate_context_properties(climate=climate)
-        assert [p.name for p in props] == ["connectivity"]
+        assert climate_context_property(climate=climate) is None
 
-    def test_properties_as_dicts(self) -> None:
-        prop = temperature_property(celsius=18.0, sampled_at="2026-01-01T00:00:00+00:00")
-        assert properties_as_dicts(properties=[prop]) == [prop.to_dict()]
+    def test_climate_context_is_temperature(self) -> None:
+        climate = ClimateState(
+            inside_temp=18.0, outside_temp=5.0, is_climate_on=False, driver_temp_setting=22.0
+        )
+        prop = climate_context_property(climate=climate, sampled_at="2026-01-01T00:00:00+00:00")
+        assert prop == temperature_property(celsius=18.0, sampled_at="2026-01-01T00:00:00+00:00")

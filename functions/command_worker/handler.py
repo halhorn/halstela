@@ -12,7 +12,7 @@ from typing import Any
 from halstela.alexa.event_gateway import EventGatewayClient
 from halstela.alexa.properties import (
     AlexaProperty,
-    climate_context_properties,
+    climate_context_property,
     connectivity_ok_property,
     power_state_property,
 )
@@ -77,12 +77,16 @@ def _send_change_report(service: VehicleService, command: WorkerCommand) -> None
 
 def _change_report_context(service: VehicleService, vehicle_id: str) -> list[AlexaProperty]:
     """付随状態（温度・connectivity）。気候状態が取れないときは connectivity のみ。"""
+    connectivity = connectivity_ok_property()
     try:
         climate = service.get_climate_state(vehicle_id)
     except Exception:
         logger.exception("Failed to fetch climate state for ChangeReport")
-        return [connectivity_ok_property()]
-    return climate_context_properties(climate=climate)
+        return [connectivity]
+    climate_prop = climate_context_property(climate=climate)
+    if climate_prop is None:
+        return [connectivity]
+    return [climate_prop, connectivity]
 
 
 def _create_event_gateway_client() -> EventGatewayClient:

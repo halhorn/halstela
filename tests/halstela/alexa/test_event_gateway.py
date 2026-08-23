@@ -48,8 +48,8 @@ class TestEventGatewayClient:
         assert event["endpoint"]["endpointId"] == "VIN1"
         assert event["endpoint"]["scope"]["token"] == "lwa-token"
         assert event["payload"]["change"]["cause"]["type"] == "VOICE_INTERACTION"
-        assert event["payload"]["change"]["properties"] == [p.to_dict() for p in changed]
-        assert captured["body"]["context"]["properties"] == [p.to_dict() for p in context]
+        assert event["payload"]["change"]["properties"] == [p.to_serializable() for p in changed]
+        assert captured["body"]["context"]["properties"] == [p.to_serializable() for p in context]
 
     def test_non_202_raises(self) -> None:
         http = httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(500, text="no")))
