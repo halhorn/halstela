@@ -46,6 +46,7 @@ Resources:
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
+                - ssm:PutParameter
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/halstela/*
         - LambdaInvokePolicy:
             FunctionName: !Ref CommandWorkerFunction
@@ -78,11 +79,13 @@ Resources:
               Action:
                 - ssm:GetParameter
                 - ssm:GetParameters
+                - ssm:PutParameter
               Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/halstela/*
       Environment:
         Variables:
           SSM_PREFIX: /halstela
           TESLA_FLEET_API_BASE_URL: !Ref TeslaFleetApiBaseUrl
+          ALEXA_EVENT_GATEWAY_URL: https://api.fe.amazonalexa.com/v3/events
       EventInvokeConfig:
         MaximumRetryAttempts: 0
 

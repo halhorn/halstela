@@ -3,13 +3,13 @@
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
+from halstela.alexa.event_gateway import EventGatewayClient
+from halstela.alexa.properties import report_state_properties
 from halstela.clients.tesla_fleet_client import TeslaFleetClient
 from halstela.clients.worker_invoker import WorkerInvoker
 from halstela.config import TeslaConfig
-from halstela.models.climate_state import ClimateState
 from halstela.models.vehicle import Vehicle
 from halstela.models.worker_command import WorkerCommand
 from halstela.services.vehicle_service import VehicleService
@@ -29,6 +29,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
         if namespace == "Alexa.Discovery" and name == "Discover":
             return handle_discovery(directive)
+        if namespace == "Alexa.Authorization" and name == "AcceptGrant":
+            return handle_accept_grant(directive)
         if namespace == "Alexa.PowerController":
             return handle_power_control(directive)
         if namespace == "Alexa" and name == "ReportState":
@@ -108,6 +110,48 @@ def _create_worker_invoker() -> WorkerInvoker:
     return WorkerInvoker(os.environ["COMMAND_WORKER_ARN"])
 
 
+# ── Authorization（Event Gateway 用 LWA トークン）──
+
+
+def handle_accept_grant(directive: dict[str, Any]) -> dict[str, Any]:
+    code = directive["payload"]["grant"]["code"]
+    try:
+        with _create_event_gateway_client() as gateway:
+            gateway.accept_grant(code=code)
+    except Exception as exc:
+        logger.exception(f"AcceptGrant failed: {exc!r}")
+        return {
+            "event": {
+                "header": {
+                    "namespace": "Alexa.Authorization",
+                    "name": "ErrorResponse",
+                    "payloadVersion": "3",
+                    "messageId": _message_id(),
+                },
+                "payload": {
+                    "type": "ACCEPT_GRANT_FAILED",
+                    "message": "Failed to handle the AcceptGrant directive",
+                },
+            }
+        }
+
+    return {
+        "event": {
+            "header": {
+                "namespace": "Alexa.Authorization",
+                "name": "AcceptGrant.Response",
+                "payloadVersion": "3",
+                "messageId": _message_id(),
+            },
+            "payload": {},
+        }
+    }
+
+
+def _create_event_gateway_client() -> EventGatewayClient:
+    return EventGatewayClient.from_env()
+
+
 # ── ReportState ──
 
 
@@ -135,7 +179,9 @@ def handle_report_state(directive: dict[str, Any]) -> dict[str, Any]:
             "payload": {},
         },
         "context": {
-            "properties": _build_temperature_properties(climate),
+            "properties": [
+                prop.to_serializable() for prop in report_state_properties(climate=climate)
+            ],
         },
     }
 
@@ -186,8 +232,8 @@ def _build_endpoint(vehicle: Vehicle) -> dict[str, Any]:
                 "version": "3",
                 "properties": {
                     "supported": [{"name": "powerState"}],
-                    "proactivelyReported": False,
-                    "retrievable": False,
+                    "proactivelyReported": True,
+                    "retrievable": True,
                 },
             },
             {
@@ -196,7 +242,7 @@ def _build_endpoint(vehicle: Vehicle) -> dict[str, Any]:
                 "version": "3",
                 "properties": {
                     "supported": [{"name": "temperature"}],
-                    "proactivelyReported": False,
+                    "proactivelyReported": True,
                     "retrievable": True,
                 },
             },
@@ -206,7 +252,7 @@ def _build_endpoint(vehicle: Vehicle) -> dict[str, Any]:
                 "version": "3.2",
                 "properties": {
                     "supported": [{"name": "connectivity"}],
-                    "proactivelyReported": False,
+                    "proactivelyReported": True,
                     "retrievable": True,
                 },
             },
@@ -219,37 +265,5 @@ def _build_endpoint(vehicle: Vehicle) -> dict[str, Any]:
     }
 
 
-def _build_temperature_properties(climate: ClimateState) -> list[dict[str, Any]]:
-    now = _iso_now()
-    properties: list[dict[str, Any]] = []
-
-    if climate.inside_temp is not None:
-        properties.append(
-            {
-                "namespace": "Alexa.TemperatureSensor",
-                "name": "temperature",
-                "value": {"value": climate.inside_temp, "scale": "CELSIUS"},
-                "timeOfSample": now,
-                "uncertaintyInMilliseconds": 60000,
-            }
-        )
-
-    properties.append(
-        {
-            "namespace": "Alexa.EndpointHealth",
-            "name": "connectivity",
-            "value": {"value": "OK"},
-            "timeOfSample": now,
-            "uncertaintyInMilliseconds": 0,
-        }
-    )
-
-    return properties
-
-
 def _message_id() -> str:
     return str(uuid.uuid4())
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
