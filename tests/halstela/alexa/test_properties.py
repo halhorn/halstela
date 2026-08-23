@@ -1,5 +1,7 @@
 """halstela.alexa.properties のテスト"""
 
+import pytest
+
 from halstela.alexa.properties import (
     AlexaProperty,
     climate_context_property,
@@ -42,11 +44,12 @@ class TestAlexaProperty:
         assert props[0].value == "ON"
         assert props[1].value == {"value": 21.0, "scale": "CELSIUS"}
 
-    def test_climate_context_is_none_without_temperature(self) -> None:
+    def test_climate_context_requires_temperature(self) -> None:
         climate = ClimateState(
             inside_temp=None, outside_temp=None, is_climate_on=False, driver_temp_setting=22.0
         )
-        assert climate_context_property(climate=climate) is None
+        with pytest.raises(ValueError, match="inside_temp"):
+            climate_context_property(climate=climate)
 
     def test_climate_context_is_temperature(self) -> None:
         climate = ClimateState(

@@ -61,19 +61,20 @@ def connectivity_ok_property(sampled_at: str | None = None) -> AlexaProperty:
     )
 
 
-def climate_context_property(
-    climate: ClimateState, sampled_at: str | None = None
-) -> AlexaProperty | None:
+def climate_context_property(climate: ClimateState, sampled_at: str | None = None) -> AlexaProperty:
     if climate.inside_temp is None:
-        return None
+        raise ValueError("climate.inside_temp is required")
     return temperature_property(celsius=climate.inside_temp, sampled_at=sampled_at)
 
 
 def report_state_properties(climate: ClimateState) -> list[AlexaProperty]:
     now = iso_now()
     power = power_state_property(state="ON" if climate.is_climate_on else "OFF", sampled_at=now)
-    climate_prop = climate_context_property(climate=climate, sampled_at=now)
     connectivity = connectivity_ok_property(sampled_at=now)
-    if climate_prop is None:
+    if climate.inside_temp is None:
         return [power, connectivity]
-    return [power, climate_prop, connectivity]
+    return [
+        power,
+        climate_context_property(climate=climate, sampled_at=now),
+        connectivity,
+    ]

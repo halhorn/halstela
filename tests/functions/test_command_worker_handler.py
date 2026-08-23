@@ -154,7 +154,7 @@ class TestCommandWorkerHandler:
     @patch("functions.command_worker.handler.create_fleet_client")
     @patch("functions.command_worker.handler.VehicleService")
     @patch("functions.command_worker.handler.TeslaConfig")
-    def test_climate_fetch_failure_still_reports_power_on(
+    def test_climate_fetch_failure_skips_change_report(
         self,
         mock_config_cls: MagicMock,
         mock_svc_cls: MagicMock,
@@ -176,9 +176,7 @@ class TestCommandWorkerHandler:
             "functions.command_worker.handler._create_event_gateway_client",
             return_value=mock_gateway,
         ):
-            lambda_handler(event, None)
+            result = lambda_handler(event, None)
 
-        kwargs = mock_gateway.send_change_report.call_args.kwargs
-        assert kwargs["changed"][0].name == "powerState"
-        assert kwargs["changed"][0].value == "ON"
-        assert [p.name for p in kwargs["context"]] == ["connectivity"]
+        assert result == {"success": True, "reason": ""}
+        mock_gateway.send_change_report.assert_not_called()
