@@ -1,4 +1,4 @@
-"""気候状態データクラス"""
+"""空調状態データクラス"""
 
 from dataclasses import dataclass
 
