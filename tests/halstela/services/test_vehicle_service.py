@@ -111,6 +111,17 @@ class TestAutoConditioningStart:
         mock_client.send_command.assert_called_once_with("VIN1", "auto_conditioning_start")
 
 
+class TestAutoConditioningStop:
+    def test_success(self, vehicle_service: VehicleService, mock_client: MagicMock) -> None:
+        mock_client.get_vehicle.return_value = {"state": "online"}
+        mock_client.send_command.return_value = {"result": True, "reason": ""}
+
+        result = vehicle_service.auto_conditioning_stop("VIN1")
+
+        assert result == CommandResult(success=True, reason="")
+        mock_client.send_command.assert_called_once_with("VIN1", "auto_conditioning_stop")
+
+
 class TestEnsureAwake:
     def test_already_online(self, vehicle_service: VehicleService, mock_client: MagicMock) -> None:
         mock_client.get_vehicle.return_value = {"state": "online"}

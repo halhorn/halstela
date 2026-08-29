@@ -62,6 +62,14 @@ class VehicleService:
             reason=str(result.get("reason", "")),
         )
 
+    def auto_conditioning_stop(self, vehicle_id: str) -> CommandResult:
+        self.ensure_awake(vehicle_id)
+        result = self._client.send_command(vehicle_id, "auto_conditioning_stop")
+        return CommandResult(
+            success=bool(result.get("result", False)),
+            reason=str(result.get("reason", "")),
+        )
+
     def ensure_awake(
         self,
         vehicle_id: str,

@@ -71,6 +71,12 @@ def handle_discovery(directive: dict[str, Any]) -> dict[str, Any]:
 # ── PowerController ──
 
 
+_COMMANDS = {
+    "TurnOn": "auto_conditioning_start",
+    "TurnOff": "auto_conditioning_stop",
+}
+
+
 def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
     header = directive["header"]
     name = header["name"]
@@ -78,7 +84,8 @@ def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
     token = endpoint["scope"]["token"]
     vehicle_id = endpoint["endpointId"]
 
-    if name != "TurnOn":
+    tesla_command = _COMMANDS.get(name)
+    if tesla_command is None:
         return _error_response(
             directive, "INVALID_DIRECTIVE", f"Unsupported: PowerController.{name}"
         )
@@ -86,7 +93,7 @@ def handle_power_control(directive: dict[str, Any]) -> dict[str, Any]:
     command = WorkerCommand(
         access_token=token,
         vehicle_id=vehicle_id,
-        command="auto_conditioning_start",
+        command=tesla_command,
         correlation_token=header.get("correlationToken") or None,
     )
     _create_worker_invoker().invoke_async(command)
