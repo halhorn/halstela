@@ -80,3 +80,13 @@ def test_resources_are_scoped_to_halstela_and_sam(oidc: Any) -> None:
     assert "/halstela/*" in by_sid["SsmReadHalstela"]["Resource"]
     s3_resources = by_sid["S3SamArtifacts"]["Resource"]
     assert any("aws-sam-cli-managed-" in r for r in s3_resources)
+
+
+def test_sam_transform_changeset_is_allowed(oidc: Any) -> None:
+    policy = oidc.deploy_policy("123456789012", "us-west-2")
+    stmt = next(s for s in policy["Statement"] if s["Sid"] == "SamTransform")
+
+    assert stmt["Action"] == "cloudformation:CreateChangeSet"
+    assert (
+        stmt["Resource"] == "arn:aws:cloudformation:us-west-2:aws:transform/Serverless-2016-10-31"
+    )
