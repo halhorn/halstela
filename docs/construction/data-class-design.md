@@ -197,7 +197,7 @@ halstela/                          # Repository root
 | **Client** | `halstela/clients/tesla_fleet_client.py` | Tesla Fleet API との HTTP 通信。低レベル API ラッパー |
 | **Service** | `halstela/services/vehicle_service.py` | ビジネスロジック。wake_up 制御、データ変換、コマンド実行 |
 | **Model** | `halstela/models/vehicle.py` | 車両データクラス |
-| **Model** | `halstela/models/climate_state.py` | 気候状態データクラス |
+| **Model** | `halstela/models/climate_state.py` | 空調状態データクラス |
 | **Model** | `halstela/models/command_result.py` | コマンド実行結果データクラス |
 | **Config** | `halstela/config.py` | 環境変数または SSM Parameter Store（Lambda では SSM_PREFIX 設定時）からの設定読み込み |
 | **Auth** | `halstela/auth/oauth.py` | OAuth2 クライアント（CLI 用） |

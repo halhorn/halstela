@@ -37,6 +37,31 @@ class TestCommandWorkerHandler:
     @patch("functions.command_worker.handler.create_fleet_client")
     @patch("functions.command_worker.handler.VehicleService")
     @patch("functions.command_worker.handler.TeslaConfig")
+    def test_stop_success(
+        self,
+        mock_config_cls: MagicMock,
+        mock_svc_cls: MagicMock,
+        mock_create_client: MagicMock,
+    ) -> None:
+        mock_svc = mock_svc_cls.return_value
+        mock_svc.auto_conditioning_stop.return_value = CommandResult(success=True, reason="")
+        mock_create_client.return_value.__enter__.return_value = MagicMock()
+
+        event = {
+            "access_token": "token",
+            "vehicle_id": "VIN1",
+            "command": "auto_conditioning_stop",
+        }
+        with patch("functions.command_worker.handler._send_change_report"):
+            result = lambda_handler(event, None)
+
+        assert result == {"success": True, "reason": ""}
+        mock_svc.auto_conditioning_stop.assert_called_once_with("VIN1")
+        mock_svc.auto_conditioning_start.assert_not_called()
+
+    @patch("functions.command_worker.handler.create_fleet_client")
+    @patch("functions.command_worker.handler.VehicleService")
+    @patch("functions.command_worker.handler.TeslaConfig")
     def test_api_failure_raises(
         self,
         mock_config_cls: MagicMock,

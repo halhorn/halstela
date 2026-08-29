@@ -152,8 +152,27 @@ class TestHandlePowerControl:
         assert result["event"]["header"]["name"] == "ErrorResponse"
         assert result["event"]["payload"]["type"] == "INTERNAL_ERROR"
 
-    def test_turn_off_unsupported(self) -> None:
+    def test_turn_off_invokes_worker_and_returns_response(self) -> None:
+        from halstela.models.worker_command import WorkerCommand
+
+        mock_invoker = MagicMock()
         directive = _make_directive("Alexa.PowerController", "TurnOff", endpoint_id="VIN1")
+        with patch("functions.skill.handler._create_worker_invoker", return_value=mock_invoker):
+            result = handle_power_control(directive)
+
+        assert result["event"]["header"]["name"] == "Response"
+        assert result["event"]["endpoint"]["endpointId"] == "VIN1"
+        mock_invoker.invoke_async.assert_called_once_with(
+            WorkerCommand(
+                access_token="test-token",
+                vehicle_id="VIN1",
+                command="auto_conditioning_stop",
+                correlation_token="corr-1",
+            )
+        )
+
+    def test_unknown_power_command_unsupported(self) -> None:
+        directive = _make_directive("Alexa.PowerController", "AdjustPower", endpoint_id="VIN1")
         result = handle_power_control(directive)
 
         assert result["event"]["header"]["name"] == "ErrorResponse"
